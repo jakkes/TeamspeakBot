@@ -14,7 +14,8 @@ namespace TeamspeakBotv2.Core
     public class Channel : IDisposable
     {
         public event EventHandler Disposed;
-        private EventWaitHandle ErrorLineReceived = new EventWaitHandle(false, EventResetMode.AutoReset);
+        private AutoResetEvent ErrorLineReceived = new EventWaitHandle(false);
+        private AutoResetEvent WhoAmIReceived = new AutoResetEvent(false);
         public string Name { get; private set; }
         public int Id { get; set; }
         private string DefaultChannel;
@@ -22,13 +23,17 @@ namespace TeamspeakBotv2.Core
         private int Port;
         private string Username;
         private string Password;
+        private int ServerId;
 
         private Socket connection;
 
+        private WhoAmIModel Me = null;
 
-        public Channel(string channel, string defaultchannel, IPEndPoint host, string username, string password)
+        private Timer readTimer;
+
+        public Channel(string channel, string defaultchannel, IPEndPoint host, string username, string password, int serverId)
         {
-            Name = channel; DefaultChannel = defaultchannel;
+            Name = channel; DefaultChannel = defaultchannel; ServerId = serverId;
             Host = host; Username = username; Password = password;
             connection = new Socket(SocketType.Stream, ProtocolType.Tcp);
             try
@@ -38,6 +43,7 @@ namespace TeamspeakBotv2.Core
             {
                 Console.WriteLine(ex.Message);
             }
+            readTimer = new Timer(new TimerCallback(Read), null, 0, 500);
             Login();
         }
         
@@ -45,11 +51,18 @@ namespace TeamspeakBotv2.Core
         {
             Send(string.Format("login {0} {1}", Username, Password));
             ErrorLineReceived.WaitOne();
+            Send(string.Format("use sid={0}", ServerId));
+            ErrorLineReceived.WaitOne();
+            var m = WhoAmI();
+
         }
 
         private WhoAmIModel WhoAmI()
         {
-            
+            Send("whoami");
+            while (Me == null)
+                WhoAmIReceived.WaitOne();
+            return Me;
         }
 
         private void Send(string message)
@@ -57,7 +70,7 @@ namespace TeamspeakBotv2.Core
             connection.SendTo(Encoding.ASCII.GetBytes(message), Host);
         }
 
-        private void Read()
+        private void Read(object state)
         {
             if (!connection.Connected)
             {
@@ -88,6 +101,15 @@ namespace TeamspeakBotv2.Core
                 HandleClientEnterView(line);
             else if (line.StartsWith("error"))
                 HandleErrorMessage(line);
+            else
+            {
+                Match m;
+                if((m = RegPatterns.WhoAmI.Match(line)).Success)
+                {
+                    Me = new WhoAmIModel(m);
+                    WhoAmIReceived.Set();
+                }
+            }
         }
 
         private void HandleErrorMessage(string line)
