@@ -16,6 +16,12 @@ namespace TeamspeakBotv2
         public static void Main(string[] args)
         {
             Console.WriteLine("Welcome.");
+            var cnf = LoadConfig();
+            foreach(var host in cnf)
+            {
+                hosts.Add(new Host(host));
+            }
+            Console.ReadLine();
         }
 
         public static HostConfig[] LoadConfig()

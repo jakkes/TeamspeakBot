@@ -15,17 +15,32 @@ namespace TeamspeakBotv2.Core
         private string Username;
         private string Password;
         private List<Channel> Channels = new List<Channel>();
-        public Server(ServerConfig cnf, IPEndPoint host, string username, string password)
+        private int Timeout;
+
+        public Server(ServerConfig cnf, IPEndPoint host, string username, string password, int timeout)
         {
             config = cnf;
             Host = host;
             Username = username;
             Password = password;
+            Timeout = timeout;
+            StartChannels();
         }
+
+        public void StartChannels()
+        {
+            foreach (var ch in config.Channels)
+                Channels.Add(new Channel(ch, config.DefaultChannel, Host, Username, Password, config.Id, Timeout));
+        }
+
         private void ChannelDisposed(object sender, EventArgs e)
         {
-            lock(Channels)
-                Channels.Remove((Channel)sender));
+            lock (Channels)
+            {
+                Channels.Remove((Channel)sender);
+                if (Channels.Count == 0)
+                    Dispose();
+            }
         }
         public void Dispose()
         {
@@ -34,8 +49,7 @@ namespace TeamspeakBotv2.Core
                 channel.Disposed -= ChannelDisposed;
                 channel.Dispose();
             }
-            if (Disposed != null)
-                Disposed(this, new EventArgs());
+            Disposed?.Invoke(this, new EventArgs());
         }
     }
 }

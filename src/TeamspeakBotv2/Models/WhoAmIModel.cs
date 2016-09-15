@@ -2,7 +2,7 @@
 
 namespace TeamspeakBotv2.Models
 {
-    public class WhoAmIModel
+    public class WhoAmIModel : IUser
     {
         public int ClientId { get; set; }
 

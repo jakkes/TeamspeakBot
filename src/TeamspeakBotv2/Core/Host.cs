@@ -14,6 +14,7 @@ namespace TeamspeakBotv2.Core
         public Host(HostConfig cnf)
         {
             config = cnf;
+            StartServers();
         }
 
         private void StartServers()
@@ -31,7 +32,7 @@ namespace TeamspeakBotv2.Core
             }
 
             foreach (var server in config.Servers)
-                servers.Add(new Server(server, Host, config.Username, config.Password));
+                servers.Add(new Server(server, Host, config.Username, config.Password, config.Timeout));
         }
     }
 }
