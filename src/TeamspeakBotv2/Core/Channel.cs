@@ -18,6 +18,7 @@ namespace TeamspeakBotv2.Core
         private AutoResetEvent ErrorLineReceived = new AutoResetEvent(false);
         private AutoResetEvent WhoAmIReceived = new AutoResetEvent(false);
         private AutoResetEvent ChannelListUpdated = new AutoResetEvent(false);
+        private AutoResetEvent ClientListUpdated = new AutoResetEvent(false);
         private AutoResetEvent ClientUniqueIdFromClidReceived = new AutoResetEvent(false);
         public string ChannelName { get { return ThisChannel.ChannelName; } }
         public int ChannelId { get { return ThisChannel.ChannelId; } }
@@ -34,6 +35,7 @@ namespace TeamspeakBotv2.Core
 
         private WhoAmIModel Me;
         private ChannelModel[] ChannelList;
+        private ClientModel[] ClientList;
         private List<GetUidFromClidModel> UidFromClidResponses = new List<GetUidFromClidModel>();
 
         private Timer readTimer;
@@ -65,6 +67,7 @@ namespace TeamspeakBotv2.Core
                     ThisChannel = GetChannel(channel);
                     DefaultChannel = GetChannel(defaultChannel);
                     MoveClient(m, ThisChannel);
+                    RegisterToEvents();
                     return;
                 }
             }
@@ -72,12 +75,42 @@ namespace TeamspeakBotv2.Core
             throw new Exception("Error when logging in");
 
         }
+
+        private void RegisterToEvents()
+        {
+            Send("servernotifyregister event=channel id=" + ThisChannel.ChannelId);
+            if (!ErrorLineReceived.WaitOne(Timeout))
+                throw new Exception("Failed to register to events");
+            Send("servernotifyregister event=textchannel");
+            if (!ErrorLineReceived.WaitOne(Timeout))
+                throw new Exception("Failed to register to events");
+        }
+
         private void Reset()
         {
             OwnerUid = string.Empty;
             Banlist = new List<string>();
             Whitelist = new List<string>();
             useWhitelist = false;
+            SendTextMessage("This channel is now unclaimed. To claim possession type !claim.");
+        }
+        private bool isOwner(ClientModel client)
+        {
+            if (string.IsNullOrEmpty(client.UniqueId))
+                client.UniqueId = GetUniqueId(client);
+            return client.UniqueId == OwnerUid;
+        }
+        private bool isBanned(ClientModel client)
+        {
+            if (string.IsNullOrEmpty(client.UniqueId))
+                client.UniqueId = GetUniqueId(client);
+            return !useWhitelist && Banlist.Contains(client.UniqueId);
+        }
+        private bool isOnWhitelist(ClientModel client)
+        {
+            if (string.IsNullOrEmpty(client.UniqueId))
+                client.UniqueId = GetUniqueId(client);
+            return useWhitelist && Whitelist.Contains(client.UniqueId);
         }
         private WhoAmIModel WhoAmI()
         {
@@ -132,11 +165,46 @@ namespace TeamspeakBotv2.Core
             }
             throw new Exception("Get unique id did not return a value for client id: " + clid);
         }
+        private string GetUniqueId(ClientModel client) => GetUniqueId(client.ClientId);
         private void MoveClient(IUser user, ChannelModel targetChannel)
         {
             Send(string.Format("clientmove clid={0} cid={1}", user.ClientId, targetChannel.ChannelId));
             if (!ErrorLineReceived.WaitOne(Timeout))
                 throw new Exception("Failed to move client");
+        }
+        private void PokeClient(IUser user, string message)
+        {
+            Send(string.Format("clientpoke clid={0} msg={1}", user.ClientId, message.Replace(" ", "\\s"));
+        }
+        private ClientModel GetClient(string name)
+        {
+            if (ClientList == null)
+                UpdateClientList();
+            ClientModel m;
+            if ((m = ClientList.FirstOrDefault(x => x.ClientName.ToLower() == name.ToLower())) != null)
+                return m;
+            else
+            {
+                UpdateClientList();
+                if ((m = ClientList.FirstOrDefault(x => x.ClientName.ToLower() == name.ToLower())) != null)
+                    return m;
+                else throw new Exception("Could not find user " + name);
+            }
+        }
+        private ClientModel GetClient(int clid)
+        {
+            if (ClientList == null)
+                UpdateClientList();
+            ClientModel m;
+            if ((m = ClientList.FirstOrDefault(x => x.ClientId == clid)) != null)
+                return m;
+            else
+            {
+                UpdateClientList();
+                if ((m = ClientList.FirstOrDefault(x => x.ClientId == clid)) != null)
+                    return m;
+                else throw new Exception("Could not find user with id " + clid);
+            }
         }
         private void UpdateChannelList()
         {
@@ -144,9 +212,19 @@ namespace TeamspeakBotv2.Core
             if (!ChannelListUpdated.WaitOne(Timeout))
                 throw new Exception("Channellist failed to receive a reply");
         }
+        private void UpdateClientList()
+        {
+            Send("clientlist");
+            if (!ClientListUpdated.WaitOne(Timeout))
+                throw new Exception("Clientlist failed to receive a reply");
+        }
         private void Send(string message)
         {
             connection.SendTo(Encoding.ASCII.GetBytes(message + "\r\n"), connection.RemoteEndPoint);
+        }
+        private void SendTextMessage(string message)
+        {
+            Send(string.Format("sendtextmessage msg=\n{0}", message.Replace(" ", "\\s")));
         }
         private void Read(object state)
         {
@@ -169,70 +247,110 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleReply(string line)
         {
-            if (line.StartsWith("notifytextmessage"))
-                HandleMessage(line);
-            else if (line.StartsWith("notifyclientmoved"))
-                HandleClientMoved(line);
-            else if (line.StartsWith("notifyclientleftview"))
-                HandleClientLeftView(line);
-            else if (line.StartsWith("notifycliententerview"))
-                HandleClientEnterView(line);
-            else if (line.StartsWith("error"))
-                HandleErrorMessage(line);
+            Match m;
+            if ((m = RegPatterns.ErrorLine.Match(line)).Success)
+            {
+                HandleErrorMessage(new ErrorModel(m));
+            } else if ((m = RegPatterns.TextMessage.Match(line)).Success)
+            {
+                HandleMessage(new MessageModel(m));
+            }
+            else if ((m = RegPatterns.ClientMoved.Match(line)).Success)
+            {
+                HandleClientMoved(new ClientMovedModel(m));
+            } else if ((m = RegPatterns.ClientLeftView.Match(line)).Success)
+            {
+                HandleClientLeftView(new ClientLeftViewModel(m));
+            } else if ((m = RegPatterns.ClientEnteredView.Match(line)).Success)
+            {
+                HandleClientEnterView(new ClientEnteredViewModel(m));
+            }
+            else if ((m = RegPatterns.ClientUniqueIdFromId.Match(line)).Success)
+            {
+                UidFromClidResponses.Add(new GetUidFromClidModel(m));
+            }
+            else if ((m = RegPatterns.Client.Match(line)).Success)
+            {
+                List<ClientModel> ch = new List<ClientModel>();
+                ch.Add(new ClientModel(m));
+                var chs = line.Split('|');
+                for (int i = 1; i < chs.Length; i++)
+                    ch.Add(new ClientModel(RegPatterns.Channel.Match(chs[i])));
+                ClientList = ch.ToArray();
+                ClientListUpdated.Set();
+            }
+            else if ((m = RegPatterns.Channel.Match(line)).Success)
+            {
+                List<ChannelModel> ch = new List<ChannelModel>();
+                ch.Add(new ChannelModel(m));
+                var chs = line.Split('|');
+                for (int i = 1; i < chs.Length; i++)
+                    ch.Add(new ChannelModel(RegPatterns.Channel.Match(chs[i])));
+                ChannelList = ch.ToArray();
+                ChannelListUpdated.Set();
+            }
+            else if ((m = RegPatterns.WhoAmI.Match(line)).Success)
+            {
+                Me = new WhoAmIModel(m);
+                WhoAmIReceived.Set();
+            }
+        }
+        private void HandleErrorMessage(ErrorModel model)
+        {
+            if (model.Id != 0)
+                throw new Exception(model.Message);
+            ErrorLineReceived.Set();
+        }
+        private void HandleClientEnterView(ClientEnteredViewModel model)
+        {
+            ClientModel client = GetClient(model.ClientId);
+            if (isBanned(client))
+            {
+                MoveClient(client, DefaultChannel);
+                PokeClient(client, "You are banned from this channel.");
+            } else if (!isOnWhitelist(client))
+            {
+                MoveClient(client, DefaultChannel);
+                PokeClient(client, "You are not on the whitelist for this channel.");
+            }
+        }
+        private void HandleClientLeftView(ClientLeftViewModel model)
+        {
+            ClientModel client = GetClient(model.ClientId);
+            if (string.IsNullOrEmpty(client.UniqueId))
+                client.UniqueId = GetUniqueId(client);
+            if(client.UniqueId == OwnerUid)
+            {
+                Reset();
+            }
+        }
+        private void HandleClientMoved(ClientMovedModel model)
+        {
+            ClientModel client = GetClient(model.ClientId);
+            client.ChannelId = model.ChannelToId;
+            if (model.ChannelToId != ThisChannel.ChannelId)
+                if (isOwner(client))
+                    Reset();
             else
             {
-                Match m;
-                if((m = RegPatterns.ClientUniqueIdFromId.Match(line)).Success)
+                if (isBanned(client))
                 {
-                    UidFromClidResponses.Add(new GetUidFromClidModel(m));
+                    MoveClient(client, DefaultChannel);
+                    PokeClient(client, "You are banned from this channel.");
                 }
-                else if((m = RegPatterns.Channel.Match(line)).Success)
+                else if (!isOnWhitelist(client))
                 {
-                    List<ChannelModel> ch = new List<ChannelModel>();
-                    ch.Add(new ChannelModel(m));
-                    var chs = line.Split('|');
-                    for (int i = 1; i < chs.Length; i++)
-                        ch.Add(new ChannelModel(RegPatterns.Channel.Match(chs[i])));
-                    ChannelList = ch.ToArray();
-                    ChannelListUpdated.Set();
-                }
-                else if((m = RegPatterns.WhoAmI.Match(line)).Success)
-                {
-                    Me = new WhoAmIModel(m);
-                    WhoAmIReceived.Set();
+                    MoveClient(client, DefaultChannel);
+                    PokeClient(client, "You are not on the whitelist for this channel.");
                 }
             }
         }
-        private void HandleErrorMessage(string line)
+        private void HandleMessage(MessageModel model)
         {
-            var match = RegPatterns.ErrorLine.Match(line);
-            if (match.Success)
+            if (model.Words[0].StartsWith("!"))
             {
-                var error = new ErrorModel(match);
-                if (error.Id != 0)
-                    throw new Exception(error.Message);
-                ErrorLineReceived.Set();
+                if(model.Words[0] == "!help")
             }
-        }
-        private void HandleClientEnterView(string line)
-        {
-            Match m = RegPatterns.EnterView.Match(line);
-            if (m.Success)
-            {
-                var model = new ClientEnteredViewModel(m);
-            }
-        }
-        private void HandleClientLeftView(string line)
-        {
-            throw new NotImplementedException();
-        }
-        private void HandleClientMoved(string line)
-        {
-            throw new NotImplementedException();
-        }
-        private void HandleMessage(string line)
-        {
-            throw new NotImplementedException();
         }
         public void Dispose()
         {
