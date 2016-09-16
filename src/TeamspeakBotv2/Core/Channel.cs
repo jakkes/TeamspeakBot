@@ -2,13 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Threading;
 using System.Net.Sockets;
 using System.Net;
 using TeamspeakBotv2.Models;
 using System.Text.RegularExpressions;
-using System.Collections.Concurrent;
 
 namespace TeamspeakBotv2.Core
 {
@@ -174,7 +172,7 @@ namespace TeamspeakBotv2.Core
         }
         private void PokeClient(IUser user, string message)
         {
-            Send(string.Format("clientpoke clid={0} msg={1}", user.ClientId, message.Replace(" ", "\\s"));
+            Send(string.Format("clientpoke clid={0} msg={1}", user.ClientId, message.Replace(" ", "\\s")));
         }
         private ClientModel GetClient(string name)
         {
