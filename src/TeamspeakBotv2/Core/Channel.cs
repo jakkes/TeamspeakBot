@@ -343,13 +343,35 @@ namespace TeamspeakBotv2.Core
                 }
             }
         }
+        private void DisplayHelp(){
+            SendTextMessage("I am a Teamspeakbot here to control the server.");
+        }
+        private void BanListCommand(MessageModel model){
+
+        }
         private void HandleMessage(MessageModel model)
         {
             if (model.Words[0].StartsWith("!"))
             {
                 if(model.Words[0] == "!help")
+                    DisplayHelp();
+                else if(model.Words[0] == "!cmdlist")
+                    DisplayCommandList();
+                else if(model.ClientUniqueId == OwnerUid){
+
+                    if(model.Words[0] == "!kick"){
+                        
+                    }
+
+                }
             }
         }
+
+        private void DisplayCommandList()
+        {
+            throw new NotImplementedException();
+        }
+
         public void Dispose()
         {
             connection.Dispose();
