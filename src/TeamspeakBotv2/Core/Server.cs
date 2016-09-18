@@ -30,9 +30,20 @@ namespace TeamspeakBotv2.Core
         public void StartChannels()
         {
             foreach (var ch in config.Channels)
-                Channels.Add(new Channel(ch, config.DefaultChannel, Host, Username, Password, config.Id, Timeout));
+            {
+                if (!Channels.Any(x => x.ChannelName == ch))
+                {
+                    try
+                    {
+                        var cha = new Channel(ch, config.DefaultChannel, Host, Username, Password, config.Id, Timeout);
+                        Channels.Add(cha);
+                    } catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
+                }
+            }
         }
-
         private void ChannelDisposed(object sender, EventArgs e)
         {
             lock (Channels)
