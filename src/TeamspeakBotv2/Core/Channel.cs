@@ -438,6 +438,7 @@ namespace TeamspeakBotv2.Core
                     if (model.Words[0] == "!kick") {
                         try { Kick(string.Join(" ", model.Words, 1, model.Words.Length - 1)); }
                         catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
+                        catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
                     } else if (model.Words[0] == "!banlist")
                     {
                         if (model.Words.Length == 1)
