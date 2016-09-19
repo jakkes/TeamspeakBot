@@ -407,14 +407,10 @@ namespace TeamspeakBotv2.Core
                 }
             }
             catch (UserNotInChannelException) { }
-            catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
         }
         private void BanlistRemove(string name)
         {
-            try
-            {
-                Banlist.RemoveAll(x => x == GetClient(name).UniqueId);
-            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
+            Banlist.RemoveAll(x => x == GetClient(name).UniqueId);
         }
         private void HandleMessage(MessageModel model)
         {
@@ -550,17 +546,11 @@ namespace TeamspeakBotv2.Core
         }
         private void WhitelistAdd(string name)
         {
-            try
-            {
-                Whitelist.Add(GetClient(name).UniqueId);
-            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
+            Whitelist.Add(GetClient(name).UniqueId);
         }
         private void WhitelistRemove(string name)
         {
-            try
-            {
-                Whitelist.RemoveAll(x => x == GetClient(name).UniqueId);
-            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
+            Whitelist.RemoveAll(x => x == GetClient(name).UniqueId);
         }
         private void DeactiveWhitelist()
         {
