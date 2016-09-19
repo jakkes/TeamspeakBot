@@ -11,7 +11,7 @@ namespace TeamspeakBotv2.Models
         {
             ChannelId = int.Parse(m.Groups[1].Value);
             UniqueId = m.Groups[3].Value;
-            ClientName = m.Groups[4].Value;
+            ClientName = m.Groups[4].Value.Replace("\\s", " ") ;
         }
     }
 }

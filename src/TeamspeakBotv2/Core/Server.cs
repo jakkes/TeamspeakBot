@@ -10,6 +10,7 @@ namespace TeamspeakBotv2.Core
     public class Server : IDisposable
     {
         public event EventHandler Disposed;
+        public int ServerId { get { return config.Id; } }
         private ServerConfig config;
         public IPEndPoint Host { get; private set; }
         private string Username;
@@ -27,20 +28,32 @@ namespace TeamspeakBotv2.Core
             StartChannels();
         }
 
-        public void StartChannels()
+        public void UpdateConfig(ServerConfig cnf)
+        {
+            config = cnf;
+            Channels.Where(x => !config.Channels.Any(y => x.ChannelName == y)).ToList().ForEach(x => x.Dispose());
+            config.Channels.Where(x => !Channels.Any(y => x == y.ChannelName)).ToList().ForEach(x => StartChannel(x));
+        }
+
+        private void StartChannels()
         {
             foreach (var ch in config.Channels)
             {
-                if (!Channels.Any(x => x.ChannelName == ch))
+                StartChannel(ch);
+            }
+        }
+        private void StartChannel(string name)
+        {
+            if (!Channels.Any(x => x.ChannelName == name))
+            {
+                try
                 {
-                    try
-                    {
-                        var cha = new Channel(ch, config.DefaultChannel, Host, Username, Password, config.Id, Timeout);
-                        Channels.Add(cha);
-                    } catch (Exception ex)
-                    {
-                        Console.WriteLine(ex.Message);
-                    }
+                    var cha = new Channel(name, config.DefaultChannel, Host, Username, Password, config.Id, Timeout);
+                    Channels.Add(cha);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
                 }
             }
         }
@@ -49,9 +62,8 @@ namespace TeamspeakBotv2.Core
             lock (Channels)
             {
                 Channels.Remove((Channel)sender);
-                if (Channels.Count == 0)
-                    Dispose();
             }
+            StartChannel(((Channel)sender).ChannelName);
         }
         public void Dispose()
         {

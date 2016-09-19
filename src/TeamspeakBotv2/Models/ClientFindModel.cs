@@ -9,7 +9,7 @@ namespace TeamspeakBotv2.Models
         public ClientFindModel(Match m)
         {
             ClientId = int.Parse(m.Groups[1].Value);
-            ClientName = m.Groups[2].Value;
+            ClientName = m.Groups[2].Value.Replace("\\s"," ");
         }
     }
 }

@@ -15,7 +15,7 @@ namespace TeamspeakBotv2.Models
             ClientId = int.Parse(m.Groups[1].Value);
             ChannelId = int.Parse(m.Groups[2].Value);
             DatabaseId = int.Parse(m.Groups[3].Value);
-            ClientName = m.Groups[4].Value;
+            ClientName = m.Groups[4].Value.Replace("\\s", " ");
         }
     }
 }

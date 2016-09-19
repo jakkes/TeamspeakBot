@@ -35,7 +35,7 @@ namespace TeamspeakBotv2.Core
 
         private WhoAmIModel Me;
         private ChannelModel[] ChannelList;
-        private ClientModel[] ClientList;
+        private List<ClientModel> ClientList;
         private List<GetUidFromClidModel> UidFromClidResponses = new List<GetUidFromClidModel>();
         private List<DetailedClientModel> DetailedClientResponses = new List<DetailedClientModel>();
 
@@ -61,6 +61,7 @@ namespace TeamspeakBotv2.Core
                 if (string.IsNullOrEmpty(OwnerUid))
                     DisplayHelp();
             }), null, 5000, 300000);
+            Console.WriteLine("Starting bot in " + channel);
         }
         private void Login(string username, string password, string defaultChannel, string channel, int serverId)
         {
@@ -294,7 +295,7 @@ namespace TeamspeakBotv2.Core
                 var chs = line.Split('|');
                 for (int i = 1; i < chs.Length; i++)
                     ch.Add(new ClientModel(RegPatterns.Client.Match(chs[i])));
-                ClientList = ch.ToArray();
+                ClientList = ch;
                 ClientListUpdated.Set();
             }
             else if ((m = RegPatterns.Channel.Match(line)).Success)
@@ -334,11 +335,12 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleClientLeftView(ClientLeftViewModel model)
         {
-            try
+            ClientModel re;
+            if((re = ClientList.FirstOrDefault(x => x.ClientId == model.ClientId)) != null)
             {
-                ClientModel client = GetClient(model.ClientId);
-                ClientLeft(client);
-            } catch (UserNotFoundException) { }
+                ClientLeft(re);
+                ClientList.RemoveAll(x => x.ClientId == model.ClientId);
+            }
         }
         private void HandleClientMoved(ClientMovedModel model)
         {
@@ -516,7 +518,6 @@ namespace TeamspeakBotv2.Core
                             {
                                 string name = string.Join(" ", model.Words, 1, model.Words.Length - 1);
                                 TransferOwnership(name);
-                                SendTextMessage("Transfered ownership to " + name);
                             }
                             catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
                             catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
@@ -531,16 +532,17 @@ namespace TeamspeakBotv2.Core
                 OwnerUid = clientUniqueId;
             else throw new Exception("Channel is claimed already");
         }
-        private void TransferOwnership(string v)
+        private void TransferOwnership(string name)
         {
             try
             {
-                var Client = GetClient(v);
+                var Client = GetClient(name);
                 var DetailedClient = GetDetailedClient(Client);
                 if (DetailedClient.ChannelId == ThisChannel.ChannelId)
                 {
                     OwnerUid = DetailedClient.UniqueId;
                     PokeClient(Client, "You are now the owner of this channel.");
+                    SendTextMessage("Transfered ownership to " + name);
                 }
                 else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientName = Client.ClientName, ClientId = Client.ClientId });
             } catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
@@ -578,8 +580,7 @@ namespace TeamspeakBotv2.Core
         public void Dispose()
         {
             connection.Dispose();
-            if (Disposed != null)
-                Disposed(this, new EventArgs());
+            Disposed?.Invoke(this, new EventArgs());
         }
     }
 }

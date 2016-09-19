@@ -11,7 +11,7 @@ namespace TeamspeakBotv2.Models
         public ChannelModel(Match m)
         {
             ChannelId = int.Parse(m.Groups[1].Value);
-            ChannelName = m.Groups[2].Value;
+            ChannelName = m.Groups[2].Value.Replace("\\s"," ");
         }
     }
 }
