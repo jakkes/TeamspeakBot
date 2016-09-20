@@ -258,7 +258,14 @@ namespace TeamspeakBotv2.Core
             }
             string[] msgs = msg.Split(new string[] { "\n\r" }, StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i < msgs.Length; i++)
-                HandleReply(msgs[i]);
+            {
+                try { HandleReply(msgs[i]); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Exception occured in Channel.Read().");
+                    Console.WriteLine(ex.Message);
+                }
+            }
         }
         private void HandleReply(string line)
         {
@@ -570,6 +577,8 @@ namespace TeamspeakBotv2.Core
         }
         public void Dispose()
         {
+            readTimer.Dispose();
+            loopTimer.Dispose();
             connection.Dispose();
             Disposed?.Invoke(this, new EventArgs());
         }
