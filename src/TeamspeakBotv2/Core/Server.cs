@@ -31,8 +31,20 @@ namespace TeamspeakBotv2.Core
         public void UpdateConfig(ServerConfig cnf)
         {
             config = cnf;
-            Channels.Where(x => !config.Channels.Any(y => x.ChannelName == y)).ToList().ForEach(x => x.Dispose());
-            config.Channels.Where(x => !Channels.Any(y => x == y.ChannelName)).ToList().ForEach(x => StartChannel(x));
+            List<Channel> newchannels = new List<Channel>();
+            foreach(var channel in cnf.Channels)
+            {
+                Channel ch;
+                if ((ch = Channels.FirstOrDefault(x => x.ChannelName == channel)) != null)
+                {
+                    newchannels.Add(ch);
+                    Channels.Remove(ch);
+                } else
+                {
+                    StartChannel(channel);
+                }
+            }
+            Channels = newchannels;
         }
 
         private void StartChannels()
@@ -49,6 +61,7 @@ namespace TeamspeakBotv2.Core
                 try
                 {
                     var cha = new Channel(name, config.DefaultChannel, Host, Username, Password, config.Id, Timeout);
+                    cha.Disposed += ChannelDisposed;
                     Channels.Add(cha);
                 }
                 catch (Exception ex)
@@ -59,11 +72,8 @@ namespace TeamspeakBotv2.Core
         }
         private void ChannelDisposed(object sender, EventArgs e)
         {
-            lock (Channels)
-            {
-                Channels.Remove((Channel)sender);
-            }
-            StartChannel(((Channel)sender).ChannelName);
+            Console.WriteLine("Channel " + ((Channel)sender).ChannelName + " stopped.");
+            Channels.Remove((Channel)sender);
         }
         public void Dispose()
         {

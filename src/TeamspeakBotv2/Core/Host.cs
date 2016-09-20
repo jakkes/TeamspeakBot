@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using TeamspeakBotv2.Config;
 
@@ -27,12 +28,22 @@ namespace TeamspeakBotv2.Core
             StartServers();
         }
 
+
         public void UpdateConfig(HostConfig cnf)
         {
             config = cnf;
-            servers.Where(x => !cnf.Servers.Any(y => y.Id == x.ServerId)).ToList().ForEach(x => x.Dispose());
-            cnf.Servers.Where(x => !servers.Any(y => y.ServerId == x.Id)).ToList().ForEach(x => StartServer(x));
-            
+            foreach(var srv in cnf.Servers)
+            {
+                Server s;
+                if((s = servers.FirstOrDefault(x => x.ServerId == srv.Id)) != null)
+                {
+                    s.UpdateConfig(srv);
+                }
+                else
+                {
+                    StartServer(srv);
+                }
+            }
         }
         private void StartServer(ServerConfig server)
         {

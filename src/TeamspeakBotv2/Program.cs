@@ -6,6 +6,7 @@ using TeamspeakBotv2.Config;
 using System.IO;
 using Newtonsoft.Json;
 using TeamspeakBotv2.Core;
+using System.Threading;
 
 namespace TeamspeakBotv2
 {
@@ -13,6 +14,7 @@ namespace TeamspeakBotv2
     {
         static string ConfigFilePath = "config.cnf";
         static List<Host> hosts = new List<Host>();
+        static Timer tmr;
         public static void Main(string[] args)
         {
             Console.WriteLine("Welcome.");
@@ -21,7 +23,24 @@ namespace TeamspeakBotv2
             {
                 hosts.Add(new Host(host));
             }
-            Console.ReadLine();
+            tmr = new Timer(new TimerCallback(UpdateConfig), null, 300000, 120000);
+            while(Console.ReadLine() != "exit")
+            {
+
+            }
+        }
+
+        private static void UpdateConfig(object state)
+        {
+            var cnf = LoadConfig();
+            foreach(var host in cnf)
+            {
+                Host h;
+                if((h = hosts.FirstOrDefault(x => x.Endpoint.Address.ToString() == host.Host)) != null)
+                {
+                    h.UpdateConfig(host);
+                }
+            }
         }
 
         public static HostConfig[] LoadConfig()
