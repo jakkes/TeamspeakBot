@@ -259,12 +259,7 @@ namespace TeamspeakBotv2.Core
             string[] msgs = msg.Split(new string[] { "\n\r" }, StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i < msgs.Length; i++)
             {
-                try { HandleReply(msgs[i]); }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Exception occured in Channel.Read().");
-                    Console.WriteLine(ex.Message);
-                }
+                HandleReply(msgs[i]);
             }
         }
         private void HandleReply(string line)
