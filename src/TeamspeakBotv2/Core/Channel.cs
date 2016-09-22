@@ -237,7 +237,7 @@ namespace TeamspeakBotv2.Core
         {
             Send("clientlist");
             if (!ClientListUpdated.WaitOne(Timeout))
-                throw new Exception("Clientlist failed to receive a reply");
+                Console.WriteLine("Failed to update clientlist.");
         }
         private void Send(string message)
         {
