@@ -18,5 +18,6 @@ namespace TeamspeakBotv2.Core
         public static Regex ClientLeftView = new Regex(@"notifyclientleftview cfid=(\d+) ctid=(\d+) reasonid=(\d+) reasonmsg=([^ ]*) clid=(\d+)");
         public static Regex TextMessage = new Regex(@"notifytextmessage targetmode=(\d+) msg=([^ ]*) invokerid=(\d+) invokername=([^ ]*) invokeruid=([^ ]*)");
         public static Regex DetailedClient = new Regex(@"cid=(\d+) client_idle_time=(\d+) client_unique_identifier=([^ ]+) client_nickname=([^ ]+)");
+        public static Regex ChannelDeleted = new Regex(@"notifychanneldeleted invokerid=(\d+) invokername=([^ ]*) invokeruid=[^ ]* cid=(\d+)");
     }
 }

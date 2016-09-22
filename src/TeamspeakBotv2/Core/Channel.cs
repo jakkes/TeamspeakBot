@@ -35,7 +35,7 @@ namespace TeamspeakBotv2.Core
 
         private WhoAmIModel Me;
         private ChannelModel[] ChannelList;
-        private List<ClientModel> ClientList;
+        private List<ClientModel> ClientList = new List<ClientModel>();
         private List<GetUidFromClidModel> UidFromClidResponses = new List<GetUidFromClidModel>();
         private List<DetailedClientModel> DetailedClientResponses = new List<DetailedClientModel>();
 
@@ -166,8 +166,6 @@ namespace TeamspeakBotv2.Core
         }
         private ClientModel GetClient(string name)
         {
-            if (ClientList == null)
-                UpdateClientList();
             ClientModel m;
             if ((m = ClientList.FirstOrDefault(x => x.ClientName.ToLower() == name.ToLower())) != null)
             {
@@ -187,8 +185,6 @@ namespace TeamspeakBotv2.Core
         }
         private ClientModel GetClient(int clid)
         {
-            if (ClientList == null)
-                UpdateClientList();
             ClientModel m;
             if ((m = ClientList.FirstOrDefault(x => x.ClientId == clid)) != null)
             {
@@ -319,6 +315,9 @@ namespace TeamspeakBotv2.Core
             {
                 Me = new WhoAmIModel(m);
                 WhoAmIReceived.Set();
+            } else if ((m = RegPatterns.ChannelDeleted.Match(line)).Success)
+            {
+                HandleChannelDeleted(new ChannelDeletedModel(m));
             }
         }
         private void HandleErrorMessage(ErrorModel model)
@@ -326,6 +325,11 @@ namespace TeamspeakBotv2.Core
             if (model.Id != 0)
                 Console.WriteLine(model.Message);
             ErrorLineReceived.Set();
+        }
+        private void HandleChannelDeleted(ChannelDeletedModel model)
+        {
+            if (model.ChannelId == ThisChannel.ChannelId)
+                Dispose();
         }
         private void HandleClientEnterView(ClientEnteredViewModel model)
         {
