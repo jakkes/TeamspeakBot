@@ -328,8 +328,7 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleChannelDeleted(ChannelDeletedModel model)
         {
-            if (model.ChannelId == ThisChannel.ChannelId)
-                Dispose();
+            Dispose();
         }
         private void HandleClientEnterView(ClientEnteredViewModel model)
         {
