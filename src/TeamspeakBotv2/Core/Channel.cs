@@ -14,6 +14,16 @@ namespace TeamspeakBotv2.Core
     public class Channel : IDisposable
     {
         public event EventHandler Disposed;
+        public bool ConnectedAndActive
+        {
+            get
+            {
+                try
+                {
+                    return GetDetailedClient(WhoAmI().ClientId).ChannelId == ThisChannel.ChannelId && connection.Connected;
+                } catch (Exception) { return false; }
+            }
+        }
         private AutoResetEvent ErrorLineReceived = new AutoResetEvent(false);
         private AutoResetEvent WhoAmIReceived = new AutoResetEvent(false);
         private AutoResetEvent ChannelListUpdated = new AutoResetEvent(false);

@@ -37,8 +37,16 @@ namespace TeamspeakBotv2.Core
                 Channel ch;
                 if ((ch = Channels.FirstOrDefault(x => x.ChannelName == channel)) != null)
                 {
-                    newchannels.Add(ch);
-                    Channels.Remove(ch);
+                    if (ch.ConnectedAndActive)
+                    {
+                        newchannels.Add(ch);
+                        Channels.Remove(ch);
+                    }
+                    else
+                    {
+                        ch.Dispose();
+                        StartChannel(ch.ChannelName);
+                    }
                 } else
                 {
                     StartChannel(channel);
