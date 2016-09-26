@@ -27,7 +27,6 @@ namespace TeamspeakBotv2.Core
             Timeout = timeout;
             StartChannels();
         }
-
         public void UpdateConfig(ServerConfig cnf)
         {
             config = cnf;
@@ -54,7 +53,6 @@ namespace TeamspeakBotv2.Core
             }
             Channels = newchannels;
         }
-
         private void StartChannels()
         {
             foreach (var ch in config.Channels)

@@ -20,7 +20,7 @@ namespace TeamspeakBotv2.Core
             {
                 try
                 {
-                    return GetDetailedClient(WhoAmI().ClientId).ChannelId == ThisChannel.ChannelId && connection.Connected;
+                    return WhoAmI().ChannelId == ThisChannel.ChannelId && connection.Connected;
                 } catch (Exception) { return false; }
             }
         }
@@ -39,9 +39,7 @@ namespace TeamspeakBotv2.Core
         private Socket connection;
 
         private string OwnerUid;
-        private List<string> Banlist;
-        private List<string> Whitelist;
-        private bool useWhitelist;
+        private Config config = new Config();
 
         private WhoAmIModel Me;
         private ChannelModel[] ChannelList;
@@ -106,9 +104,7 @@ namespace TeamspeakBotv2.Core
         private void Reset()
         {
             OwnerUid = string.Empty;
-            Banlist = new List<string>();
-            Whitelist = new List<string>();
-            useWhitelist = false;
+            config = new Config();
         }
         private bool isOwner(ClientModel client)
         {
@@ -117,8 +113,7 @@ namespace TeamspeakBotv2.Core
         private WhoAmIModel WhoAmI()
         {
             Send("whoami");
-            if (Me == null)
-                WhoAmIReceived.WaitOne();
+            WhoAmIReceived.WaitOne();
             return Me;
         }
         private ChannelModel GetChannel(int cid)
@@ -225,8 +220,6 @@ namespace TeamspeakBotv2.Core
                 }
             throw new UserNotFoundException(new UserNotFoundEventArgs() { ClientName = model.ClientName, ClientId = model.ClientId });
         }
-        private DetailedClientModel GetDetailedClient(int clid) => GetDetailedClient(GetClient(clid));
-        private DetailedClientModel GetDetailedClient(string name) => GetDetailedClient(GetClient(name));
         private void UpdateChannelList()
         {
             Send("channellist");
@@ -283,6 +276,10 @@ namespace TeamspeakBotv2.Core
             {
                 HandleClientMoved(new ClientMovedModel(m));
             }
+            else if((m = RegPatterns.ClientMovedByAdmin.Match(line)).Success)
+            {
+                HandleClientMoved(new ClientMovedModel(m));
+            }
             else if ((m = RegPatterns.ClientLeftView.Match(line)).Success)
             {
                 HandleClientLeftView(new ClientLeftViewModel(m));
@@ -333,7 +330,7 @@ namespace TeamspeakBotv2.Core
         private void HandleErrorMessage(ErrorModel model)
         {
             if (model.Id != 0)
-                Console.WriteLine(model.Message);
+                Console.WriteLine(model.Line);
             ErrorLineReceived.Set();
         }
         private void HandleChannelDeleted(ChannelDeletedModel model)
@@ -372,15 +369,10 @@ namespace TeamspeakBotv2.Core
         }
         private void ClientJoined(ClientModel client)
         {
-            if (!useWhitelist && Banlist.Contains(client.UniqueId))
+            if (!config.AllowedInChannel(client.UniqueId))
             {
-                MoveClient(client, DefaultChannel);
-                PokeClient(client, "You are banned from this channel.");
-            }
-            else if (useWhitelist && !Whitelist.Contains(client.UniqueId))
-            {
-                MoveClient(client, DefaultChannel);
-                PokeClient(client, "You are not on the whitelist for this channel.");
+                PokeClient(client, "You are not allowed in this channel.");
+                Kick(client);
             }
         }
         private void ClientLeft(ClientModel client)
@@ -397,35 +389,34 @@ namespace TeamspeakBotv2.Core
         }
         private void Kick(ClientModel client)
         {
-            try
-            {
-                if (GetDetailedClient(client).ChannelId == ThisChannel.ChannelId)
-                    MoveClient(client, DefaultChannel);
-                else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientId = client.ClientId, ClientName = client.ClientName });
-            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + client.ClientName); }
+
+            if (GetDetailedClient(client).ChannelId == ThisChannel.ChannelId)
+                MoveClient(client, DefaultChannel);
+            else SendTextMessage(client.ClientName + " is not in this channel.");
         }
-        private void Kick(string name) => Kick(GetClient(name));
         private void DisplayBanlist()
         {
-            SendTextMessage("Banlist:\n" + string.Join("\n", Banlist));
+            SendTextMessage("Banlist:\n" + string.Join("\n", config.Banlist));
         }
         private void BanlistAdd(string name)
         {
             try
             {
                 var client = GetClient(name);
-                if (!Banlist.Contains(client.UniqueId))
-                {
-                    Banlist.Add(client.UniqueId);
-                    Kick(client);
-                    PokeClient(client, "You were banned from " + ThisChannel.ChannelName);
-                }
+                config.Ban(client.UniqueId);
+                Kick(client);
+                PokeClient(client, "You were banned from this channel.");
+                SendTextMessage(name + " is now banned from this channel.");
             }
+            catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
             catch (UserNotInChannelException) { }
         }
         private void BanlistRemove(string name)
         {
-            Banlist.RemoveAll(x => x == GetClient(name).UniqueId);
+            try
+            {
+                config.Unban(GetClient(name).UniqueId);
+            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
         }
         private void HandleMessage(MessageModel model)
         {
@@ -447,8 +438,7 @@ namespace TeamspeakBotv2.Core
                 else if (model.ClientUniqueId == OwnerUid) {
 
                     if (model.Words[0] == "!kick") {
-                        try { Kick(string.Join(" ", model.Words, 1, model.Words.Length - 1)); }
-                        catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
+                        try { Kick(GetClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
                         catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
                     } else if (model.Words[0] == "!banlist")
                     {
@@ -461,7 +451,6 @@ namespace TeamspeakBotv2.Core
                                 {
                                     string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
                                     BanlistAdd(name);
-                                    SendTextMessage(name + " is now banned.");
                                 }
                                 catch (UserNotFoundException ex)
                                 {
@@ -561,23 +550,23 @@ namespace TeamspeakBotv2.Core
         }
         private void WhitelistAdd(string name)
         {
-            Whitelist.Add(GetClient(name).UniqueId);
+            try
+            {
+                config.AddToWhitelist(GetClient(name).UniqueId);
+            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
         }
         private void WhitelistRemove(string name)
         {
-            Whitelist.RemoveAll(x => x == GetClient(name).UniqueId);
+            try
+            {
+                config.RemoveFromWhitelist(GetClient(name).UniqueId);
+            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
         }
-        private void DeactiveWhitelist()
-        {
-            useWhitelist = false;
-        }
-        private void ActiveWhitelist()
-        {
-            useWhitelist = true;
-        }
+        private void DeactiveWhitelist() => config.UseBanlist();
+        private void ActiveWhitelist() => config.UseWhitelist();
         private void DisplayWhiteList()
         {
-            SendTextMessage("Whitelist:\n" + string.Join("\n", Whitelist));
+            SendTextMessage("Whitelist:\n" + string.Join("\n", config.Whitelist));
         }
         private void DisplayCommandList()
         {
