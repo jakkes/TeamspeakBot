@@ -385,7 +385,7 @@ namespace TeamspeakBotv2.Core
         }
         private void DisplayHelp()
         {
-            SendTextMessage("I am a Teamspeakbot here to control the server. !cmdlist displays a list of commands. If something does not work the way it is expected / supposed to, please contact Jakkes.");
+            SendTextMessage("I am a Teamspeakbot here to control the server. Type !claim to claim possession of this channel. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and Jakkes will see it.");
         }
         private void Kick(ClientModel client)
         {
@@ -424,9 +424,11 @@ namespace TeamspeakBotv2.Core
             {
                 if (model.Words[0] == "!help")
                     DisplayHelp();
+                else if (model.Words[0] == "!feedback" && model.Words.Length > 1)
+                    Console.WriteLine(string.Join(" ", model.Words, 1, model.Words.Length - 1));
                 else if (model.Words[0] == "!cmdlist")
                     DisplayCommandList();
-                else if(model.Words[0] == "!claim")
+                else if (model.Words[0] == "!claim")
                 {
                     try
                     {
@@ -435,12 +437,15 @@ namespace TeamspeakBotv2.Core
                     }
                     catch (Exception) { SendTextMessage("This channel is claimed already."); }
                 }
-                else if (model.ClientUniqueId == OwnerUid) {
+                else if (model.ClientUniqueId == OwnerUid)
+                {
 
-                    if (model.Words[0] == "!kick") {
+                    if (model.Words[0] == "!kick")
+                    {
                         try { Kick(GetClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
                         catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
-                    } else if (model.Words[0] == "!banlist")
+                    }
+                    else if (model.Words[0] == "!banlist")
                     {
                         if (model.Words.Length == 1)
                             DisplayBanlist();
@@ -463,13 +468,15 @@ namespace TeamspeakBotv2.Core
                                     string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
                                     BanlistRemove(name);
                                     SendTextMessage(name + " is now unbanned.");
-                                } catch (UserNotFoundException ex)
+                                }
+                                catch (UserNotFoundException ex)
                                 {
                                     SendTextMessage("Could not find user " + ex.ClientName);
                                 }
                             }
                         }
-                    } else if (model.Words[0] == "!whitelist")
+                    }
+                    else if (model.Words[0] == "!whitelist")
                     {
                         if (model.Words.Length == 1)
                             DisplayWhiteList();
@@ -485,7 +492,8 @@ namespace TeamspeakBotv2.Core
                                 DeactiveWhitelist();
                                 SendTextMessage("This channel is now in banlist mode.");
                             }
-                        } else
+                        }
+                        else
                         {
                             if (model.Words[1] == "add")
                             {
@@ -506,12 +514,14 @@ namespace TeamspeakBotv2.Core
                                     string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
                                     WhitelistRemove(name);
                                     SendTextMessage(name + " is now removed from the whitelist.");
-                                } catch (UserNotFoundException ex)
+                                }
+                                catch (UserNotFoundException ex)
                                 {
                                     SendTextMessage("Could not find user " + ex.ClientName);
                                 }
                         }
-                    } else if (model.Words[0] == "!transfer")
+                    }
+                    else if (model.Words[0] == "!transfer")
                     {
                         if (model.Words.Length > 1)
                         {
@@ -570,7 +580,7 @@ namespace TeamspeakBotv2.Core
         }
         private void DisplayCommandList()
         {
-            SendTextMessage(@"Command list:\n!cmdlist - Displays this message.\n!help - Displays information about me.\n\n!claim - Claims the channel you are currently in.\n!kick <user> - Kicks a user from the channel. Example: !kick Jakkes\n!banlist - Displays the banlist.\n!banlist add <user> - Bans a user from the channel. Example: !banlist add Jakkes\n!banlist remove <user> - Unbans a user from the channel. Example: !banlist remove Jakkes\n!whitelist - Displays the whitelist.\n!whitelist on - Activates the whitelist.\n!whitelist off - Deactivates the whitelist.\n!whitelist add <user> - Adds a user to the whitelist. Example: !whitelist add Jakkes\n!whitelist remove <user> - Removes a user from the whitelist. Exmaple: !whitelist remove Jakkes\n!transfer <user> - Transfers the ownership to another user. Example: !transfer Jakkes");
+            SendTextMessage(@"Command list:\n!cmdlist - Displays this message.\n!help - Displays information about me.\n!feedback <message> - Sends feedback to Jakkes. Example: !feedback This bot is amazing!\n!claim - Claims the channel you are currently in.\n!kick <user> - Kicks a user from the channel. Example: !kick Jakkes\n!banlist - Displays the banlist.\n!banlist add <user> - Bans a user from the channel. Example: !banlist add Jakkes\n!banlist remove <user> - Unbans a user from the channel. Example: !banlist remove Jakkes\n!whitelist - Displays the whitelist.\n!whitelist on - Activates the whitelist.\n!whitelist off - Deactivates the whitelist.\n!whitelist add <user> - Adds a user to the whitelist. Example: !whitelist add Jakkes\n!whitelist remove <user> - Removes a user from the whitelist. Exmaple: !whitelist remove Jakkes\n!transfer <user> - Transfers the ownership to another user. Example: !transfer Jakkes");
         }
         public void Dispose()
         {

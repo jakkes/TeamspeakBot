@@ -14,8 +14,7 @@ namespace TeamspeakBotv2.Models
             ChannelFromId = int.Parse(m.Groups[1].Value);
             ChannelToId = int.Parse(m.Groups[2].Value);
             ReasonId = int.Parse(m.Groups[3].Value);
-            ReasonMessage = m.Groups[4].Value.Replace("\\s"," ");
-            ClientId = int.Parse(m.Groups[5].Value);
+            ClientId = int.Parse(m.Groups[4].Value);
         }
     }
 }
