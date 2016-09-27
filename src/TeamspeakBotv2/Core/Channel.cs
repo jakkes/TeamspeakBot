@@ -34,6 +34,7 @@ namespace TeamspeakBotv2.Core
         public int ChannelId { get { return ThisChannel.ChannelId; } }
         private ChannelModel ThisChannel;
         private ChannelModel DefaultChannel;
+        private string RealChannelName;
         private int Timeout;
 
         private Socket connection;
@@ -81,6 +82,7 @@ namespace TeamspeakBotv2.Core
                 {
                     var m = WhoAmI();
                     ThisChannel = GetChannel(channel);
+                    RealChannelName = channel;
                     DefaultChannel = GetChannel(defaultChannel);
                     MoveClient(m, ThisChannel);
                     RegisterToEvents();
@@ -103,6 +105,7 @@ namespace TeamspeakBotv2.Core
         }
         private void Reset()
         {
+            SetChannelName(RealChannelName);
             OwnerUid = string.Empty;
             config = new Config();
         }
@@ -537,11 +540,19 @@ namespace TeamspeakBotv2.Core
                 }
             }
         }
-        private void ClaimChannel(string clientUniqueId)
+        private void ClaimChannel(string clientUniqueId, string name)
         {
             if (string.IsNullOrEmpty(OwnerUid))
+            {
                 OwnerUid = clientUniqueId;
+                SetChannelName(string.Format("{0} ({1})", RealChannelName, name));
+            }
             else throw new Exception("Channel is claimed already");
+        }
+        private void SetChannelName(string name)
+        {
+            Send(string.Format("channeledit cid={0} channel_name={1}", ThisChannel.ChannelId, name));
+            ErrorLineReceived.WaitOne(Timeout);
         }
         private void TransferOwnership(string name)
         {
