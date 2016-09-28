@@ -30,7 +30,7 @@ namespace TeamspeakBotv2.Core
         private AutoResetEvent ClientListUpdated = new AutoResetEvent(false);
         private AutoResetEvent ClientUniqueIdFromClidReceived = new AutoResetEvent(false);
         private AutoResetEvent DetailedClientReceived = new AutoResetEvent(false);
-        public string ChannelName { get { return ThisChannel.ChannelName; } }
+        public string ChannelName { get { return RealChannelName; } }
         public int ChannelId { get { return ThisChannel.ChannelId; } }
         private ChannelModel ThisChannel;
         private ChannelModel DefaultChannel;
@@ -39,7 +39,7 @@ namespace TeamspeakBotv2.Core
 
         private Socket connection;
 
-        private string OwnerUid;
+        private string OwnerUid = string.Empty;
         private Config config = new Config();
 
         private WhoAmIModel Me;
@@ -64,7 +64,6 @@ namespace TeamspeakBotv2.Core
             }
             readTimer = new Timer(new TimerCallback(Read), null, 0, 100);
             Login(username,password,defaultchannel,channel,serverId);
-            Reset();
             loopTimer = new Timer(new TimerCallback((object state) =>
             {
                 if (string.IsNullOrEmpty(OwnerUid))
@@ -435,7 +434,7 @@ namespace TeamspeakBotv2.Core
                 {
                     try
                     {
-                        ClaimChannel(model.ClientUniqueId);
+                        ClaimChannel(model);
                         SendTextMessage("You are now in power of this channel.");
                     }
                     catch (Exception) { SendTextMessage("This channel is claimed already."); }
@@ -540,18 +539,23 @@ namespace TeamspeakBotv2.Core
                 }
             }
         }
-        private void ClaimChannel(string clientUniqueId, string name)
+        private void ClaimChannel(MessageModel model)
         {
             if (string.IsNullOrEmpty(OwnerUid))
             {
-                OwnerUid = clientUniqueId;
-                SetChannelName(string.Format("{0} ({1})", RealChannelName, name));
+                try
+                {
+                    ClientModel m = GetClient(model.ClientId);
+                    OwnerUid = m.UniqueId;
+                    SetChannelName(string.Format("{0} ({1})", RealChannelName, m.ClientName));
+                }
+                catch (UserNotFoundException) { SendTextMessage("Something went wrong..."); }
             }
             else throw new Exception("Channel is claimed already");
         }
         private void SetChannelName(string name)
         {
-            Send(string.Format("channeledit cid={0} channel_name={1}", ThisChannel.ChannelId, name));
+            Send(string.Format("channeledit cid={0} channel_name={1}", ThisChannel.ChannelId, name.Replace(" ","\\s")));
             ErrorLineReceived.WaitOne(Timeout);
         }
         private void TransferOwnership(string name)
@@ -564,6 +568,7 @@ namespace TeamspeakBotv2.Core
                 {
                     OwnerUid = DetailedClient.UniqueId;
                     PokeClient(Client, "You are now the owner of this channel.");
+                    SetChannelName(string.Format("{0} ({1})", RealChannelName, name));
                     SendTextMessage("Transfered ownership to " + name);
                 }
                 else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientName = Client.ClientName, ClientId = Client.ClientId });
@@ -595,6 +600,7 @@ namespace TeamspeakBotv2.Core
         }
         public void Dispose()
         {
+            SetChannelName(RealChannelName);
             readTimer.Dispose();
             loopTimer.Dispose();
             connection.Dispose();
