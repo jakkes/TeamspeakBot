@@ -39,7 +39,7 @@ namespace TeamspeakBotv2.Core
 
         private Socket connection;
 
-        private string OwnerUid = string.Empty;
+        private ClientModel Owner = null;
         private Config config = new Config();
 
         private WhoAmIModel Me;
@@ -66,8 +66,18 @@ namespace TeamspeakBotv2.Core
             Login(username,password,defaultchannel,channel,serverId);
             loopTimer = new Timer(new TimerCallback((object state) =>
             {
-                if (string.IsNullOrEmpty(OwnerUid))
+                if (Owner == null)
                     DisplayHelp();
+                try
+                {
+                    if (Owner != null)
+                    {
+                        var m = GetClient(Owner.ClientId);
+                        if (m.ChannelId != ThisChannel.ChannelId)
+                            throw new Exception();
+                    }
+                }
+                catch (Exception) { Reset(); }
             }), null, 5000, 300000);
             Console.WriteLine("Starting bot in " + channel);
         }
@@ -105,12 +115,12 @@ namespace TeamspeakBotv2.Core
         private void Reset()
         {
             SetChannelName(RealChannelName);
-            OwnerUid = string.Empty;
+            Owner = null;
             config = new Config();
         }
         private bool isOwner(ClientModel client)
         {
-            return client.UniqueId == OwnerUid;
+            return client.UniqueId == Owner.UniqueId;
         }
         private WhoAmIModel WhoAmI()
         {
@@ -344,6 +354,7 @@ namespace TeamspeakBotv2.Core
             try
             {
                 ClientModel client = GetClient(model.ClientId);
+                client.ChannelId = model.ToChannelId;
                 ClientJoined(client);
             } catch (UserNotFoundException) { }
         }
@@ -352,6 +363,7 @@ namespace TeamspeakBotv2.Core
             ClientModel re;
             if((re = ClientList.FirstOrDefault(x => x.ClientId == model.ClientId)) != null)
             {
+                re.ChannelId = 0;
                 ClientLeft(re);
                 ClientList.RemoveAll(x => x.ClientId == model.ClientId);
             }
@@ -379,7 +391,7 @@ namespace TeamspeakBotv2.Core
         }
         private void ClientLeft(ClientModel client)
         {
-            if (OwnerUid == client.UniqueId)
+            if (Owner.UniqueId == client.UniqueId)
             {
                 Reset();
                 SendTextMessage("This channel is now unclaimed. To claim possession type !claim.");
@@ -439,7 +451,7 @@ namespace TeamspeakBotv2.Core
                     }
                     catch (Exception) { SendTextMessage("This channel is claimed already."); }
                 }
-                else if (model.ClientUniqueId == OwnerUid)
+                else if (model.ClientUniqueId == Owner.UniqueId)
                 {
 
                     if (model.Words[0] == "!kick")
@@ -541,12 +553,12 @@ namespace TeamspeakBotv2.Core
         }
         private void ClaimChannel(MessageModel model)
         {
-            if (string.IsNullOrEmpty(OwnerUid))
+            if (Owner == null)
             {
                 try
                 {
                     ClientModel m = GetClient(model.ClientId);
-                    OwnerUid = m.UniqueId;
+                    Owner = m;
                     SetChannelName(string.Format("{0} ({1})", RealChannelName, m.ClientName));
                 }
                 catch (UserNotFoundException) { SendTextMessage("Something went wrong..."); }
@@ -566,7 +578,7 @@ namespace TeamspeakBotv2.Core
                 var DetailedClient = GetDetailedClient(Client);
                 if (DetailedClient.ChannelId == ThisChannel.ChannelId)
                 {
-                    OwnerUid = DetailedClient.UniqueId;
+                    Owner = Client;
                     PokeClient(Client, "You are now the owner of this channel.");
                     SetChannelName(string.Format("{0} ({1})", RealChannelName, name));
                     SendTextMessage("Transfered ownership to " + name);
