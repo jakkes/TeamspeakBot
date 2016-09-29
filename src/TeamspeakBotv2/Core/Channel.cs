@@ -124,7 +124,7 @@ namespace TeamspeakBotv2.Core
         }
         private bool isOwner(string UniqueId)
         {
-            return Owner != null && Owner.UniqueId != UniqueId;
+            return Owner != null && Owner.UniqueId == UniqueId;
         }
         private WhoAmIModel WhoAmI()
         {
