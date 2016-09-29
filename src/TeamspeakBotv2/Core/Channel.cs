@@ -120,7 +120,11 @@ namespace TeamspeakBotv2.Core
         }
         private bool isOwner(ClientModel client)
         {
-            return client.UniqueId == Owner.UniqueId;
+            return isOwner(client.UniqueId);
+        }
+        private bool isOwner(string UniqueId)
+        {
+            return Owner != null && Owner.UniqueId != UniqueId;
         }
         private WhoAmIModel WhoAmI()
         {
@@ -391,7 +395,7 @@ namespace TeamspeakBotv2.Core
         }
         private void ClientLeft(ClientModel client)
         {
-            if (Owner.UniqueId == client.UniqueId)
+            if (isOwner(client))
             {
                 Reset();
                 SendTextMessage("This channel is now unclaimed. To claim possession type !claim.");
@@ -451,7 +455,7 @@ namespace TeamspeakBotv2.Core
                     }
                     catch (Exception) { SendTextMessage("This channel is claimed already."); }
                 }
-                else if (model.ClientUniqueId == Owner.UniqueId)
+                else if (isOwner(model.ClientUniqueId))
                 {
 
                     if (model.Words[0] == "!kick")
