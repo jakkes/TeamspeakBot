@@ -17,7 +17,7 @@ namespace TeamspeakBotv2.Core
         public void RemoveFromWhitelist(string uniqueId) => whiteList.RemoveWhere(x => x == uniqueId);
         public IEnumerable<string> Banlist { get { return banList.ToArray(); } }
         public IEnumerable<string> Whitelist { get { return whiteList.ToArray(); } }
-        public bool AllowedInChannel(string uniqueId) => useWhitelist && whiteList.Contains(uniqueId) || !useWhitelist && !banList.Contains(uniqueId);
+        public bool AllowedInChannel(string uniqueId) => (useWhitelist && whiteList.Contains(uniqueId)) || (!useWhitelist && !banList.Contains(uniqueId));
         public void UseWhitelist() => useWhitelist = true;
         public void UseBanlist() => useWhitelist = false;
     }

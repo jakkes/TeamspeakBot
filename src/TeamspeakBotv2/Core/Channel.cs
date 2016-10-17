@@ -46,7 +46,7 @@ namespace TeamspeakBotv2.Core
         private ChannelModel[] ChannelList;
         private List<ClientModel> ClientList = new List<ClientModel>();
         private List<GetUidFromClidModel> UidFromClidResponses = new List<GetUidFromClidModel>();
-        private List<DetailedClientModel> DetailedClientResponses = new List<DetailedClientModel>();
+        private Dictionary<string, DetailedClientModel> DetailedClientResponses = new Dictionary<string, DetailedClientModel>();
 
         private Timer readTimer;
         private Timer loopTimer;
@@ -225,15 +225,18 @@ namespace TeamspeakBotv2.Core
         }
         private DetailedClientModel GetDetailedClient(ClientModel model)
         {
+            if (string.IsNullOrEmpty(model.UniqueId))
+                model.UniqueId = GetUniqueId(model);
             Send(string.Format("clientinfo clid={0}", model.ClientId));
-            DetailedClientModel re;
             while (DetailedClientReceived.WaitOne(Timeout))
-                if ((re = DetailedClientResponses.FirstOrDefault(x => x.ClientName == model.ClientName)) != null)
+            {
+                if (DetailedClientResponses[model.UniqueId] != null)
                 {
-                    lock (DetailedClientResponses)
-                        DetailedClientResponses.Remove(re);
-                    return re;
+                    var resp = DetailedClientResponses[model.UniqueId];
+                    DetailedClientResponses.Remove(model.UniqueId);
+                    return resp;
                 }
+            }
             throw new UserNotFoundException(new UserNotFoundEventArgs() { ClientName = model.ClientName, ClientId = model.ClientId });
         }
         private void UpdateChannelList()
@@ -331,7 +334,8 @@ namespace TeamspeakBotv2.Core
             }
             else if ((m = RegPatterns.DetailedClient.Match(line)).Success)
             {
-                DetailedClientResponses.Add(new DetailedClientModel(m));
+                var client = new DetailedClientModel(m);
+                DetailedClientResponses.Add(client.UniqueId,client);
                 DetailedClientReceived.Set();
             }
             else if ((m = RegPatterns.WhoAmI.Match(line)).Success)
