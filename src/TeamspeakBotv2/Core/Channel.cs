@@ -41,6 +41,7 @@ namespace TeamspeakBotv2.Core
 
         private ClientModel Owner = null;
         private Config config = new Config();
+        private Queue<ClientModel> OwnerQueue = new Queue<ClientModel>();
 
         private WhoAmIModel Me;
         private ChannelModel[] ChannelList;
@@ -395,19 +396,37 @@ namespace TeamspeakBotv2.Core
             {
                 PokeClient(client, "You are not allowed in this channel.");
                 Kick(client);
+            } else if(Owner == null)
+            {
+                SetOwner(client);
+            } else
+            {
+                OwnerQueue.Enqueue(client);
             }
         }
         private void ClientLeft(ClientModel client)
         {
             if (isOwner(client))
             {
+                while(OwnerQueue.Count > 0)
+                {
+                    try
+                    {
+                        var temp = OwnerQueue.Dequeue();
+                        if (GetDetailedClient(temp).ChannelId == ThisChannel.ChannelId) {
+                            SetOwner(temp);
+                            return;
+                        }
+                    }
+                    catch (Exception) { }
+                }
                 Reset();
                 SendTextMessage("This channel is now unclaimed. To claim possession type !claim.");
             }
         }
         private void DisplayHelp()
         {
-            SendTextMessage("I am a Teamspeakbot here to control the server. Type !claim to claim possession of this channel. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and Jakkes will see it.");
+            SendTextMessage("I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.");
         }
         private void Kick(ClientModel client)
         {
@@ -559,15 +578,19 @@ namespace TeamspeakBotv2.Core
                 }
             }
         }
+        private void SetOwner(ClientModel client)
+        {
+            Owner = client;
+            SetChannelName(string.Format("{0} ({1})", RealChannelName, client.ClientName));
+            DisplayHelp();
+        }
         private void ClaimChannel(MessageModel model)
         {
             if (Owner == null)
             {
                 try
                 {
-                    ClientModel m = GetClient(model.ClientId);
-                    Owner = m;
-                    SetChannelName(string.Format("{0} ({1})", RealChannelName, m.ClientName));
+                    SetOwner(GetClient(model.ClientId));
                 }
                 catch (UserNotFoundException) { SendTextMessage("Something went wrong..."); }
             }
@@ -586,9 +609,8 @@ namespace TeamspeakBotv2.Core
                 var DetailedClient = GetDetailedClient(Client);
                 if (DetailedClient.ChannelId == ThisChannel.ChannelId)
                 {
-                    Owner = Client;
+                    SetOwner(Client);
                     PokeClient(Client, "You are now the owner of this channel.");
-                    SetChannelName(string.Format("{0} ({1})", RealChannelName, name));
                     SendTextMessage("Transfered ownership to " + name);
                 }
                 else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientName = Client.ClientName, ClientId = Client.ClientId });
