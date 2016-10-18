@@ -390,6 +390,8 @@ namespace TeamspeakBotv2.Core
         }
         private void ClientJoined(ClientModel client)
         {
+            if (client.UniqueId == "serveradmin")
+                return;
             if (!config.AllowedInChannel(client.UniqueId))
             {
                 PokeClient(client, "You are not allowed in this channel.");
