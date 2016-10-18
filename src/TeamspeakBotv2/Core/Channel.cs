@@ -67,8 +67,6 @@ namespace TeamspeakBotv2.Core
             Login(username,password,defaultchannel,channel,serverId);
             loopTimer = new Timer(new TimerCallback((object state) =>
             {
-                if (Owner == null)
-                    DisplayHelp();
                 try
                 {
                     if (Owner != null)
@@ -78,7 +76,7 @@ namespace TeamspeakBotv2.Core
                             throw new Exception();
                     }
                 }
-                catch (Exception) { Reset(); }
+                catch (Exception) { Reset(); Console.WriteLine("Had to reset."); }
             }), null, 5000, 300000);
             Console.WriteLine("Starting bot in " + channel);
         }
