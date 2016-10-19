@@ -461,6 +461,7 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleMessage(MessageModel model)
         {
+            try{
             if (model.Words[0].StartsWith("!"))
             {
                 if (model.Words[0] == "!help")
@@ -576,6 +577,14 @@ namespace TeamspeakBotv2.Core
                         }
                     }
                 }
+            }
+            } catch (IndexOutOfRangeException ex){
+                Console.WriteLine("Error in HandleMessage. IndexOutOfRange");
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(string.Join(" ",model.Words));
+            } catch (Exception ex){
+                Console.WriteLine("Unknown error in HandleMessage.");
+                Console.WriteLine(ex.Message);
             }
         }
         private void SetOwner(ClientModel client)
