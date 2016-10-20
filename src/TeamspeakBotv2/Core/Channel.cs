@@ -334,6 +334,8 @@ namespace TeamspeakBotv2.Core
             else if ((m = RegPatterns.DetailedClient.Match(line)).Success)
             {
                 var client = new DetailedClientModel(m);
+                if(DetailedClientResponses.ContainsKey(client.UniqueId))
+                    DetailedClientResponses.Remove(client.UniqueId);
                 DetailedClientResponses.Add(client.UniqueId,client);
                 DetailedClientReceived.Set();
             }
