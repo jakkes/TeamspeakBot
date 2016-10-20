@@ -281,71 +281,79 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleReply(string line)
         {
-            Match m;
-            if ((m = RegPatterns.ErrorLine.Match(line)).Success)
+            try
             {
-                HandleErrorMessage(new ErrorModel(m));
-            }
-            else if ((m = RegPatterns.TextMessage.Match(line)).Success)
+                Match m;
+                if ((m = RegPatterns.ErrorLine.Match(line)).Success)
+                {
+                    HandleErrorMessage(new ErrorModel(m));
+                }
+                else if ((m = RegPatterns.TextMessage.Match(line)).Success)
+                {
+                    HandleMessage(new MessageModel(m));
+                }
+                else if ((m = RegPatterns.ClientMoved.Match(line)).Success)
+                {
+                    HandleClientMoved(new ClientMovedModel(m));
+                }
+                else if ((m = RegPatterns.ClientMovedByAdmin.Match(line)).Success)
+                {
+                    HandleClientMoved(new ClientMovedModel(m));
+                }
+                else if ((m = RegPatterns.ClientLeftView.Match(line)).Success)
+                {
+                    HandleClientLeftView(new ClientLeftViewModel(m));
+                }
+                else if ((m = RegPatterns.ClientEnteredView.Match(line)).Success)
+                {
+                    HandleClientEnterView(new ClientEnteredViewModel(m));
+                }
+                else if ((m = RegPatterns.ClientUniqueIdFromId.Match(line)).Success)
+                {
+                    UidFromClidResponses.Add(new GetUidFromClidModel(m));
+                    ClientUniqueIdFromClidReceived.Set();
+                }
+                else if ((m = RegPatterns.Client.Match(line)).Success)
+                {
+                    List<ClientModel> ch = new List<ClientModel>();
+                    ch.Add(new ClientModel(m));
+                    var chs = line.Split('|');
+                    for (int i = 1; i < chs.Length; i++)
+                        ch.Add(new ClientModel(RegPatterns.Client.Match(chs[i])));
+                    ClientList = ch;
+                    ClientListUpdated.Set();
+                }
+                else if ((m = RegPatterns.Channel.Match(line)).Success)
+                {
+                    List<ChannelModel> ch = new List<ChannelModel>();
+                    ch.Add(new ChannelModel(m));
+                    var chs = line.Split('|');
+                    for (int i = 1; i < chs.Length; i++)
+                        ch.Add(new ChannelModel(RegPatterns.Channel.Match(chs[i])));
+                    ChannelList = ch.ToArray();
+                    ChannelListUpdated.Set();
+                }
+                else if ((m = RegPatterns.DetailedClient.Match(line)).Success)
+                {
+                    var client = new DetailedClientModel(m);
+                    if (DetailedClientResponses.ContainsKey(client.UniqueId))
+                        DetailedClientResponses.Remove(client.UniqueId);
+                    DetailedClientResponses.Add(client.UniqueId, client);
+                    DetailedClientReceived.Set();
+                }
+                else if ((m = RegPatterns.WhoAmI.Match(line)).Success)
+                {
+                    Me = new WhoAmIModel(m);
+                    WhoAmIReceived.Set();
+                }
+                else if ((m = RegPatterns.ChannelDeleted.Match(line)).Success)
+                {
+                    HandleChannelDeleted(new ChannelDeletedModel(m));
+                }
+            }catch(Exception ex)
             {
-                HandleMessage(new MessageModel(m));
-            }
-            else if ((m = RegPatterns.ClientMoved.Match(line)).Success)
-            {
-                HandleClientMoved(new ClientMovedModel(m));
-            }
-            else if((m = RegPatterns.ClientMovedByAdmin.Match(line)).Success)
-            {
-                HandleClientMoved(new ClientMovedModel(m));
-            }
-            else if ((m = RegPatterns.ClientLeftView.Match(line)).Success)
-            {
-                HandleClientLeftView(new ClientLeftViewModel(m));
-            }
-            else if ((m = RegPatterns.ClientEnteredView.Match(line)).Success)
-            {
-                HandleClientEnterView(new ClientEnteredViewModel(m));
-            }
-            else if ((m = RegPatterns.ClientUniqueIdFromId.Match(line)).Success)
-            {
-                UidFromClidResponses.Add(new GetUidFromClidModel(m));
-                ClientUniqueIdFromClidReceived.Set();
-            }
-            else if ((m = RegPatterns.Client.Match(line)).Success)
-            {
-                List<ClientModel> ch = new List<ClientModel>();
-                ch.Add(new ClientModel(m));
-                var chs = line.Split('|');
-                for (int i = 1; i < chs.Length; i++)
-                    ch.Add(new ClientModel(RegPatterns.Client.Match(chs[i])));
-                ClientList = ch;
-                ClientListUpdated.Set();
-            }
-            else if ((m = RegPatterns.Channel.Match(line)).Success)
-            {
-                List<ChannelModel> ch = new List<ChannelModel>();
-                ch.Add(new ChannelModel(m));
-                var chs = line.Split('|');
-                for (int i = 1; i < chs.Length; i++)
-                    ch.Add(new ChannelModel(RegPatterns.Channel.Match(chs[i])));
-                ChannelList = ch.ToArray();
-                ChannelListUpdated.Set();
-            }
-            else if ((m = RegPatterns.DetailedClient.Match(line)).Success)
-            {
-                var client = new DetailedClientModel(m);
-                if(DetailedClientResponses.ContainsKey(client.UniqueId))
-                    DetailedClientResponses.Remove(client.UniqueId);
-                DetailedClientResponses.Add(client.UniqueId,client);
-                DetailedClientReceived.Set();
-            }
-            else if ((m = RegPatterns.WhoAmI.Match(line)).Success)
-            {
-                Me = new WhoAmIModel(m);
-                WhoAmIReceived.Set();
-            } else if ((m = RegPatterns.ChannelDeleted.Match(line)).Success)
-            {
-                HandleChannelDeleted(new ChannelDeletedModel(m));
+                Console.WriteLine("Error in HandleReply");
+                Console.WriteLine(ex.Message);
             }
         }
         private void HandleErrorMessage(ErrorModel model)
@@ -446,13 +454,14 @@ namespace TeamspeakBotv2.Core
             try
             {
                 var client = GetClient(name);
-                config.Ban(client.UniqueId);
+                config.Ban(client.UniqueId,name);
                 Kick(client);
                 PokeClient(client, "You were banned from this channel.");
                 SendTextMessage(name + " is now banned from this channel.");
             }
             catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
             catch (UserNotInChannelException) { }
+            catch (ArgumentException) { SendTextMessage(name + " is already on the banlist."); }
         }
         private void BanlistRemove(string name)
         {
@@ -464,122 +473,121 @@ namespace TeamspeakBotv2.Core
         private void HandleMessage(MessageModel model)
         {
             try{
-            if (model.Words[0].StartsWith("!"))
-            {
-                if (model.Words[0] == "!help")
-                    DisplayHelp();
-                else if (model.Words[0] == "!feedback" && model.Words.Length > 1)
-                    Console.WriteLine(string.Join(" ", model.Words, 1, model.Words.Length - 1));
-                else if (model.Words[0] == "!cmdlist")
-                    DisplayCommandList();
-                else if (model.Words[0] == "!claim")
+                if (model.Words[0].StartsWith("!"))
                 {
-                    try
+                    if (model.Words[0] == "!help")
+                        DisplayHelp();
+                    else if (model.Words[0] == "!feedback" && model.Words.Length > 1)
+                        Console.WriteLine(string.Join(" ", model.Words, 1, model.Words.Length - 1));
+                    else if (model.Words[0] == "!cmdlist")
+                        DisplayCommandList();
+                    else if (model.Words[0] == "!claim")
                     {
-                        ClaimChannel(model);
-                        SendTextMessage("You are now in power of this channel.");
+                        try
+                        {
+                            ClaimChannel(model);
+                            SendTextMessage("You are now in power of this channel.");
+                        }
+                        catch (Exception) { SendTextMessage("This channel is claimed already."); }
                     }
-                    catch (Exception) { SendTextMessage("This channel is claimed already."); }
-                }
-                else if (isOwner(model.ClientUniqueId))
-                {
+                    else if (isOwner(model.ClientUniqueId))
+                    {
 
-                    if (model.Words[0] == "!kick")
-                    {
-                        try { Kick(GetClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
-                        catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
-                    }
-                    else if (model.Words[0] == "!banlist")
-                    {
-                        if (model.Words.Length == 1)
-                            DisplayBanlist();
-                        else if (model.Words.Length > 2)
+                        if (model.Words[0] == "!kick")
                         {
-                            if (model.Words[1] == "add")
-                                try
-                                {
-                                    string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
-                                    BanlistAdd(name);
-                                }
-                                catch (UserNotFoundException ex)
-                                {
-                                    SendTextMessage("Could not find user " + ex.ClientName);
-                                }
-                            else if (model.Words[1] == "remove")
-                            {
-                                try
-                                {
-                                    string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
-                                    BanlistRemove(name);
-                                    SendTextMessage(name + " is now unbanned.");
-                                }
-                                catch (UserNotFoundException ex)
-                                {
-                                    SendTextMessage("Could not find user " + ex.ClientName);
-                                }
-                            }
-                        }
-                    }
-                    else if (model.Words[0] == "!whitelist")
-                    {
-                        if (model.Words.Length == 1)
-                            DisplayWhiteList();
-                        else if (model.Words.Length == 2)
-                        {
-                            if (model.Words[1] == "on")
-                            {
-                                ActiveWhitelist();
-                                SendTextMessage("This channel is now in whitelist mode");
-                            }
-                            else if (model.Words[1] == "off")
-                            {
-                                DeactiveWhitelist();
-                                SendTextMessage("This channel is now in banlist mode.");
-                            }
-                        }
-                        else
-                        {
-                            if (model.Words[1] == "add")
-                            {
-                                try
-                                {
-                                    string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
-                                    WhitelistAdd(name);
-                                    SendTextMessage(name + " is now on the whitelist.");
-                                }
-                                catch (UserNotFoundException ex)
-                                {
-                                    SendTextMessage("Could not find user " + ex.ClientName);
-                                }
-                            }
-                            else if (model.Words[1] == "remove")
-                                try
-                                {
-                                    string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
-                                    WhitelistRemove(name);
-                                    SendTextMessage(name + " is now removed from the whitelist.");
-                                }
-                                catch (UserNotFoundException ex)
-                                {
-                                    SendTextMessage("Could not find user " + ex.ClientName);
-                                }
-                        }
-                    }
-                    else if (model.Words[0] == "!transfer")
-                    {
-                        if (model.Words.Length > 1)
-                        {
-                            try
-                            {
-                                string name = string.Join(" ", model.Words, 1, model.Words.Length - 1);
-                                TransferOwnership(name);
-                            }
-                            catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
+                            try { Kick(GetClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
                             catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
                         }
+                        else if (model.Words[0] == "!banlist")
+                        {
+                            if (model.Words.Length == 1)
+                                DisplayBanlist();
+                            else if (model.Words.Length > 2)
+                            {
+                                if (model.Words[1] == "add")
+                                    try
+                                    {
+                                        string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
+                                        BanlistAdd(name);
+                                    }
+                                    catch (UserNotFoundException ex)
+                                    {
+                                        SendTextMessage("Could not find user " + ex.ClientName);
+                                    }
+                                else if (model.Words[1] == "remove")
+                                {
+                                    try
+                                    {
+                                        string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
+                                        BanlistRemove(name);
+                                        SendTextMessage(name + " is now unbanned.");
+                                    }
+                                    catch (UserNotFoundException ex)
+                                    {
+                                        SendTextMessage("Could not find user " + ex.ClientName);
+                                    }
+                                }
+                            }
+                        }
+                        else if (model.Words[0] == "!whitelist")
+                        {
+                            if (model.Words.Length == 1)
+                                DisplayWhiteList();
+                            else if (model.Words.Length == 2)
+                            {
+                                if (model.Words[1] == "on")
+                                {
+                                    ActiveWhitelist();
+                                    SendTextMessage("This channel is now in whitelist mode");
+                                }
+                                else if (model.Words[1] == "off")
+                                {
+                                    DeactiveWhitelist();
+                                    SendTextMessage("This channel is now in banlist mode.");
+                                }
+                            }
+                            else
+                            {
+                                if (model.Words[1] == "add")
+                                {
+                                    try
+                                    {
+                                        string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
+                                        WhitelistAdd(name);
+                                    }
+                                    catch (UserNotFoundException ex)
+                                    {
+                                        SendTextMessage("Could not find user " + ex.ClientName);
+                                    }
+                                }
+                                else if (model.Words[1] == "remove")
+                                    try
+                                    {
+                                        string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
+                                        WhitelistRemove(name);
+                                        SendTextMessage(name + " is now removed from the whitelist.");
+                                    }
+                                    catch (UserNotFoundException ex)
+                                    {
+                                        SendTextMessage("Could not find user " + ex.ClientName);
+                                    }
+                            }
+                        }
+                        else if (model.Words[0] == "!transfer")
+                        {
+                            if (model.Words.Length > 1)
+                            {
+                                try
+                                {
+                                    string name = string.Join(" ", model.Words, 1, model.Words.Length - 1);
+                                    TransferOwnership(name);
+                                }
+                                catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
+                                catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
+                            }
+                        }
                     }
                 }
-            }
             } catch (IndexOutOfRangeException ex){
                 Console.WriteLine("Error in HandleMessage. IndexOutOfRange");
                 Console.WriteLine(ex.Message);
@@ -592,7 +600,10 @@ namespace TeamspeakBotv2.Core
         private void SetOwner(ClientModel client)
         {
             Owner = client;
-            SetChannelName(string.Format("{0} ({1})", RealChannelName, client.ClientName));
+            if (client != null)
+                SetChannelName(string.Format("{0} ({1})", RealChannelName, client.ClientName));
+            else
+                SetChannelName(RealChannelName);
             DisplayHelp();
         }
         private void ClaimChannel(MessageModel model)
@@ -631,8 +642,11 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                config.AddToWhitelist(GetClient(name).UniqueId);
-            } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
+                config.AddToWhitelist(GetClient(name).UniqueId,name);
+                SendTextMessage(name + " is now on the whitelist.");
+            }
+            catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
+            catch (ArgumentException) { SendTextMessage(name + " is already on the whitelist."); }
         }
         private void WhitelistRemove(string name)
         {
@@ -645,7 +659,7 @@ namespace TeamspeakBotv2.Core
         private void ActiveWhitelist() => config.UseWhitelist();
         private void DisplayWhiteList()
         {
-            SendTextMessage("Whitelist:\n" + string.Join("\n", config.Whitelist));
+            SendTextMessage("Whitelist:\\n" + string.Join("\\n", config.Whitelist));
         }
         private void DisplayCommandList()
         {
