@@ -114,6 +114,7 @@ namespace TeamspeakBotv2.Core
         private void Reset()
         {
             SetChannelName(RealChannelName);
+            OwnerQueue.Clear();
             Owner = null;
             config = new Config();
         }
