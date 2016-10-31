@@ -113,6 +113,16 @@ namespace TeamspeakBotv2.Core
         }
         private void Reset()
         {
+            try
+            {
+                config.Save(Owner.UniqueId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to save config.");
+                Console.WriteLine(ex.Message);
+            }
+
             SetChannelName(RealChannelName);
             OwnerQueue.Clear();
             Owner = null;
@@ -405,8 +415,11 @@ namespace TeamspeakBotv2.Core
                 return;
             if (!config.AllowedInChannel(client.UniqueId))
             {
-                PokeClient(client, "You are not allowed in this channel.");
-                Kick(client);
+                try
+                {
+                    PokeClient(client, "You are not allowed in this channel.");
+                    Kick(client);
+                } catch (UserNotInChannelException) { }
             } else if(Owner == null)
             {
                 SetOwner(client);
@@ -437,18 +450,17 @@ namespace TeamspeakBotv2.Core
         }
         private void DisplayHelp()
         {
-            SendTextMessage("I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.");
+            SendTextMessage(@"I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.\n\nNew feature! Your configuration is now automatically saved.");
         }
         private void Kick(ClientModel client)
         {
-
             if (GetDetailedClient(client).ChannelId == ThisChannel.ChannelId)
                 MoveClient(client, DefaultChannel);
-            else SendTextMessage(client.ClientName + " is not in this channel.");
+            else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientId = client.ClientId, ClientName = client.ClientName });
         }
         private void DisplayBanlist()
         {
-            SendTextMessage("Banlist:\n" + string.Join("\n", config.Banlist));
+            SendTextMessage("Banlist:\\n" + string.Join("\\n", config.Banlist.Values));
         }
         private void BanlistAdd(string name)
         {
@@ -456,9 +468,9 @@ namespace TeamspeakBotv2.Core
             {
                 var client = GetClient(name);
                 config.Ban(client.UniqueId,name);
+                SendTextMessage(name + " is now banned from this channel.");
                 Kick(client);
                 PokeClient(client, "You were banned from this channel.");
-                SendTextMessage(name + " is now banned from this channel.");
             }
             catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
             catch (UserNotInChannelException) { }
@@ -473,7 +485,8 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleMessage(MessageModel model)
         {
-            try{
+            try
+            {
                 if (model.Words[0].StartsWith("!"))
                 {
                     if (model.Words[0] == "!help")
@@ -498,11 +511,20 @@ namespace TeamspeakBotv2.Core
                         {
                             try { Kick(GetClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
                             catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
+                            catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
                         }
                         else if (model.Words[0] == "!banlist")
                         {
                             if (model.Words.Length == 1)
                                 DisplayBanlist();
+                            else if(model.Words.Length == 2)
+                            {
+                                if(model.Words[1] == "clear")
+                                {
+                                    config.ClearBanlist();
+                                    SendTextMessage("Banlist is now empty.");
+                                }
+                            }
                             else if (model.Words.Length > 2)
                             {
                                 if (model.Words[1] == "add")
@@ -589,11 +611,15 @@ namespace TeamspeakBotv2.Core
                         }
                     }
                 }
-            } catch (IndexOutOfRangeException ex){
+            }
+            catch (IndexOutOfRangeException ex)
+            {
                 Console.WriteLine("Error in HandleMessage. IndexOutOfRange");
                 Console.WriteLine(ex.Message);
-                Console.WriteLine(string.Join(" ",model.Words));
-            } catch (Exception ex){
+                Console.WriteLine(string.Join(" ", model.Words));
+            }
+            catch (Exception ex)
+            {
                 Console.WriteLine("Unknown error in HandleMessage.");
                 Console.WriteLine(ex.Message);
             }
@@ -606,6 +632,13 @@ namespace TeamspeakBotv2.Core
             else
                 SetChannelName(RealChannelName);
             DisplayHelp();
+            try
+            {
+                config = Config.Load(client.UniqueId);
+            } catch (Exception)
+            {
+                config = new Config();
+            }
         }
         private void ClaimChannel(MessageModel model)
         {
@@ -660,11 +693,11 @@ namespace TeamspeakBotv2.Core
         private void ActiveWhitelist() => config.UseWhitelist();
         private void DisplayWhiteList()
         {
-            SendTextMessage("Whitelist:\\n" + string.Join("\\n", config.Whitelist));
+            SendTextMessage("Whitelist:\\n" + string.Join("\\n", config.Whitelist.Values));
         }
         private void DisplayCommandList()
         {
-            SendTextMessage(@"Command list:\n!cmdlist - Displays this message.\n!help - Displays information about me.\n!feedback <message> - Sends feedback to Jakkes. Example: !feedback This bot is amazing!\n!claim - Claims the channel you are currently in.\n!kick <user> - Kicks a user from the channel. Example: !kick Jakkes\n!banlist - Displays the banlist.\n!banlist add <user> - Bans a user from the channel. Example: !banlist add Jakkes\n!banlist remove <user> - Unbans a user from the channel. Example: !banlist remove Jakkes\n!whitelist - Displays the whitelist.\n!whitelist on - Activates the whitelist.\n!whitelist off - Deactivates the whitelist.\n!whitelist add <user> - Adds a user to the whitelist. Example: !whitelist add Jakkes\n!whitelist remove <user> - Removes a user from the whitelist. Exmaple: !whitelist remove Jakkes\n!transfer <user> - Transfers the ownership to another user. Example: !transfer Jakkes");
+            SendTextMessage(@"Command list:\n!cmdlist - Displays this message.\n!help - Displays information about me.\n!feedback <message> - Sends feedback to Jakkes. Example: !feedback This bot is amazing!\n!claim - Claims the channel you are currently in.\n!kick <user> - Kicks a user from the channel. Example: !kick Jakkes\n!banlist - Displays the banlist.\n!banlist add <user> - Bans a user from the channel. Example: !banlist add Jakkes\n!banlist remove <user> - Unbans a user from the channel. Example: !banlist remove Jakkes\n!banlist clear - Clears the banlist.\n!whitelist - Displays the whitelist.\n!whitelist on - Activates the whitelist.\n!whitelist off - Deactivates the whitelist.\n!whitelist add <user> - Adds a user to the whitelist. Example: !whitelist add Jakkes\n!whitelist remove <user> - Removes a user from the whitelist. Exmaple: !whitelist remove Jakkes\n!transfer <user> - Transfers the ownership to another user. Example: !transfer Jakkes");
         }
         public void Dispose()
         {
