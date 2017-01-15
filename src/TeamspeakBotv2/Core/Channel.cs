@@ -42,12 +42,15 @@ namespace TeamspeakBotv2.Core
         private ClientModel Owner = null;
         private Config config = new Config();
         private Queue<ClientModel> OwnerQueue = new Queue<ClientModel>();
-
+        
         private WhoAmIModel Me;
         private ChannelModel[] ChannelList;
         private List<ClientModel> ClientList = new List<ClientModel>();
         private List<GetUidFromClidModel> UidFromClidResponses = new List<GetUidFromClidModel>();
         private Dictionary<string, DetailedClientModel> DetailedClientResponses = new Dictionary<string, DetailedClientModel>();
+
+        private Dictionary<string, int> SpamCount = new Dictionary<string, int>();
+        private Timer _spamTimer;
 
         private Timer readTimer;
         private Timer loopTimer;
@@ -78,6 +81,19 @@ namespace TeamspeakBotv2.Core
                 }
                 catch (Exception) { Reset(); Console.WriteLine("Had to reset."); }
             }), null, 5000, 300000);
+            _spamTimer = new Timer(new TimerCallback((o) =>
+            {
+                var keys = SpamCount.Keys.ToArray();
+                foreach (var key in keys)
+                {
+                    if (SpamCount.ContainsKey(key))
+                    {
+                        SpamCount[key]--;
+                        if (SpamCount[key] == 0)
+                            SpamCount.Remove(key);
+                    }
+                }
+            }), null, 5000, 10000);
             Console.WriteLine("Starting bot in " + channel);
         }
         private void Login(string username, string password, string defaultChannel, string channel, int serverId)
@@ -415,9 +431,22 @@ namespace TeamspeakBotv2.Core
                 return;
             if (!config.AllowedInChannel(client.UniqueId))
             {
+                PokeClient(client, "You are not allowed in this channel. Do not spam, it'll get you banned.");
+
+                if (SpamCount.ContainsKey(client.UniqueId))
+                {
+                    SpamCount[client.UniqueId]++;
+                    if (SpamCount[client.UniqueId] >= 10)
+                    {
+                        BanForSpam(client);
+                        return;
+                    }
+                }
+                else
+                    SpamCount.Add(client.UniqueId, 1);
+
                 try
                 {
-                    PokeClient(client, "You are not allowed in this channel.");
                     Kick(client);
                 } catch (UserNotInChannelException) { }
             } else if(Owner == null)
@@ -427,6 +456,11 @@ namespace TeamspeakBotv2.Core
             {
                 OwnerQueue.Enqueue(client);
             }
+        }
+
+        private void BanForSpam(ClientModel client)
+        {
+            Send(string.Format("banclient clid={0} time=600", client.ClientId));
         }
         private void ClientLeft(ClientModel client)
         {
@@ -450,12 +484,14 @@ namespace TeamspeakBotv2.Core
         }
         private void DisplayHelp()
         {
-            SendTextMessage(@"I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.\n\nNew feature! Your configuration is now automatically saved.");
+            SendTextMessage(@"I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.\n\nNew feature! People spamjoining will be automatically banned from the server.");
         }
         private void Kick(ClientModel client)
         {
             if (GetDetailedClient(client).ChannelId == ThisChannel.ChannelId)
+            {
                 MoveClient(client, DefaultChannel);
+            }
             else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientId = client.ClientId, ClientName = client.ClientName });
         }
         private void DisplayBanlist()
