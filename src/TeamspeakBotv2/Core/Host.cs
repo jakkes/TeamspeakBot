@@ -8,9 +8,10 @@ using TeamspeakBotv2.Config;
 
 namespace TeamspeakBotv2.Core
 {
-    public class Host
+    public class Host : IDisposable
     {
         private HostConfig config;
+        public event EventHandler Disposed;
         public IPEndPoint Endpoint { get; private set; }
         private List<Server> servers = new List<Server>();
         public Host(HostConfig cnf)
@@ -49,7 +50,8 @@ namespace TeamspeakBotv2.Core
         {
             var srv = new Server(server, Endpoint, config.Username, config.Password, config.Timeout);
             srv.Disposed += Srv_Disposed;
-            servers.Add(srv);
+            lock (servers)
+                servers.Add(srv);
         }
         private void StartServers()
         {
@@ -62,6 +64,18 @@ namespace TeamspeakBotv2.Core
         {
             lock (servers)
                 servers.Remove((Server)sender);
+        }
+
+        public void Dispose()
+        {
+            lock (servers)
+            {
+                foreach(var server in servers)
+                {
+                    server.Disposed -= Srv_Disposed;
+                    server.Dispose();
+                }
+            }
         }
     }
 }

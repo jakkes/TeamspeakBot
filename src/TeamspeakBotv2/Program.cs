@@ -28,6 +28,10 @@ namespace TeamspeakBotv2
             {
 
             }
+            foreach(var host in hosts)
+            {
+                host.Dispose();
+            }
         }
 
         private static void UpdateConfig(object state)
