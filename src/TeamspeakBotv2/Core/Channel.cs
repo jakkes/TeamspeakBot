@@ -98,10 +98,10 @@ namespace TeamspeakBotv2.Core
         }
         private void Login(string username, string password, string defaultChannel, string channel, int serverId)
         {
-            Send(string.Format("login {0} {1}", username, password));
+            SendAsync(string.Format("login {0} {1}", username, password));
             if (ErrorLineReceived.WaitOne(Timeout))
             {
-                Send(string.Format("use sid={0}", serverId));
+                SendAsync(string.Format("use sid={0}", serverId));
                 if (ErrorLineReceived.WaitOne(Timeout))
                 {
                     var m = WhoAmI();
@@ -120,10 +120,10 @@ namespace TeamspeakBotv2.Core
         }
         private void RegisterToEvents()
         {
-            Send("servernotifyregister event=channel id=" + ThisChannel.ChannelId);
+            SendAsync("servernotifyregister event=channel id=" + ThisChannel.ChannelId);
             if (!ErrorLineReceived.WaitOne(Timeout))
                 throw new Exception("Failed to register to events");
-            Send("servernotifyregister event=textchannel");
+            SendAsync("servernotifyregister event=textchannel");
             if (!ErrorLineReceived.WaitOne(Timeout))
                 throw new Exception("Failed to register to events");
         }
@@ -154,7 +154,7 @@ namespace TeamspeakBotv2.Core
         }
         private WhoAmIModel WhoAmI()
         {
-            Send("whoami");
+            SendAsync("whoami");
             WhoAmIReceived.WaitOne();
             return Me;
         }
@@ -190,7 +190,7 @@ namespace TeamspeakBotv2.Core
         }
         private string GetUniqueId(int clid)
         {
-            Send(string.Format("clientgetuidfromclid clid={0}", clid));
+            SendAsync(string.Format("clientgetuidfromclid clid={0}", clid));
             while(ClientUniqueIdFromClidReceived.WaitOne(Timeout))
             {
                 GetUidFromClidModel re;
@@ -205,11 +205,11 @@ namespace TeamspeakBotv2.Core
         private string GetUniqueId(ClientModel client) => GetUniqueId(client.ClientId);
         private void MoveClient(IUser user, ChannelModel targetChannel)
         {
-            Send(string.Format("clientmove clid={0} cid={1}", user.ClientId, targetChannel.ChannelId));
+            SendAsync(string.Format("clientmove clid={0} cid={1}", user.ClientId, targetChannel.ChannelId));
         }
         private void PokeClient(IUser user, string message)
         {
-            Send(string.Format("clientpoke clid={0} msg={1}", user.ClientId, message.Replace(" ", "\\s")));
+            SendAsync(string.Format("clientpoke clid={0} msg={1}", user.ClientId, message.Replace(" ", "\\s")));
         }
         private ClientModel GetClient(string name)
         {
@@ -253,7 +253,7 @@ namespace TeamspeakBotv2.Core
         {
             if (string.IsNullOrEmpty(model.UniqueId))
                 model.UniqueId = GetUniqueId(model);
-            Send(string.Format("clientinfo clid={0}", model.ClientId));
+            SendAsync(string.Format("clientinfo clid={0}", model.ClientId));
             while (DetailedClientReceived.WaitOne(Timeout))
             {
                 if (DetailedClientResponses[model.UniqueId] != null)
@@ -267,23 +267,27 @@ namespace TeamspeakBotv2.Core
         }
         private void UpdateChannelList()
         {
-            Send("channellist");
+            SendAsync("channellist");
             if (!ChannelListUpdated.WaitOne(Timeout))
                 throw new Exception("Channellist failed to receive a reply");
         }
         private void UpdateClientList()
         {
-            Send("clientlist");
+            SendAsync("clientlist");
             if (!ClientListUpdated.WaitOne(Timeout))
                 Console.WriteLine("Failed to update clientlist.");
         }
+        private void SendAsync(string message)
+        {
+            Task.Run(() => Send(message));
+        }
         private void Send(string message)
         {
-            Task.Run(() => connection.Send(Encoding.ASCII.GetBytes(message + "\n\r")));
+            connection.Send(Encoding.ASCII.GetBytes(message + "\n\r"));
         }
         private void SendTextMessage(string message)
         {
-            Send(string.Format(@"sendtextmessage targetmode=2 msg=\n{0}", message.Replace(" ", "\\s")));
+            SendAsync(string.Format(@"sendtextmessage targetmode=2 msg=\n{0}", message.Replace(" ", "\\s")));
         }
         private void Read(object state)
         {
@@ -460,7 +464,7 @@ namespace TeamspeakBotv2.Core
 
         private void BanForSpam(ClientModel client)
         {
-            Send(string.Format("banclient clid={0} time=600", client.ClientId));
+            SendAsync(string.Format("banclient clid={0} time=600", client.ClientId));
         }
         private void ClientLeft(ClientModel client)
         {
