@@ -55,7 +55,7 @@ namespace TeamspeakBotv2.Core
         private Timer readTimer;
         private Timer loopTimer;
 
-        public Channel(string channel, string defaultchannel, IPEndPoint host, string username, string password, int serverId, int timeout)
+        public Channel(string channel, string parent, string defaultchannel, IPEndPoint host, string username, string password, int serverId, int timeout)
         {
             Timeout = timeout;
             connection = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -67,7 +67,7 @@ namespace TeamspeakBotv2.Core
                 Console.WriteLine(ex.Message);
             }
             readTimer = new Timer(new TimerCallback(Read), null, 0, 100);
-            Login(username,password,defaultchannel,channel,serverId);
+            Login(username,password,defaultchannel,channel,parent,serverId);
             loopTimer = new Timer(new TimerCallback((object state) =>
             {
                 try
@@ -96,7 +96,8 @@ namespace TeamspeakBotv2.Core
             }), null, 5000, 10000);
             Console.WriteLine("Starting bot in " + channel);
         }
-        private void Login(string username, string password, string defaultChannel, string channel, int serverId)
+        
+        private void Login(string username, string password, string defaultChannel, string channel, string parent, int serverId)
         {
             SendAsync(string.Format("login {0} {1}", username, password));
             if (ErrorLineReceived.WaitOne(Timeout))
@@ -105,6 +106,7 @@ namespace TeamspeakBotv2.Core
                 if (ErrorLineReceived.WaitOne(Timeout))
                 {
                     var m = WhoAmI();
+                    _createChannel(channel,GetChannel(parent));
                     ThisChannel = GetChannel(channel);
                     RealChannelName = channel;
                     DefaultChannel = GetChannel(defaultChannel);
@@ -117,6 +119,12 @@ namespace TeamspeakBotv2.Core
 
             throw new Exception("Error when logging in");
 
+        }
+        private void _createChannel(string channelName, ChannelModel parent){
+            SendAsync(string.Format("channelcreate channel_name={0} cpid={1}",channelName, parent.ChannelId));
+            if(ErrorLineReceived.WaitOne(Timeout))
+                return;
+            else throw new Exception("Failed to create channel.");
         }
         private void RegisterToEvents()
         {

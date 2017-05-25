@@ -39,4 +39,23 @@ namespace TeamspeakBotv2.Core
         public int ClientId { get; set; }
         public string ClientName { get; set; }
     }
+
+    public class ChannelNotFoundException : Exception{
+        public string ChannelName { get; set; }
+    }
+
+    public class FailedToCreateChannelException : Exception {
+        public string ChannelName { get; set; }
+    }
+
+    public class FailedToRegisterEventsException : Exception{
+        public FailedToRegisterEventsEventArgs Args { get; set; }
+        public FailedToRegisterEventsException(string event) {
+            Args = new FailedToRegisterEventsEventArgs(){Event = event};
+        }
+    }
+
+    public class FailedToRegisterEventsEventArgs{
+        public string Event { get; set; }
+    }
 }
