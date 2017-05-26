@@ -120,20 +120,28 @@ namespace TeamspeakBotv2.Core
             throw new Exception("Error when logging in");
 
         }
+        /// <summary>
+        /// Creates a temporary channel. Throws CreateChannelException on error.
+        /// </summary>
+        /// <param name="channelName">Name of channel.</param>
+        /// <param name="parent">Parent channel under which the channel should be created.</param>
         private void _createChannel(string channelName, ChannelModel parent){
             SendAsync(string.Format("channelcreate channel_name={0} cpid={1}",channelName, parent.ChannelId));
             if(ErrorLineReceived.WaitOne(Timeout))
                 return;
-            else throw new Exception("Failed to create channel.");
+            else throw new CreateChannelException(channelName);
         }
+        /// <summary>
+        /// Registers the bot to necessary events. Throws FailedToRegisterToEventsException if unable to register.
+        /// </summary>
         private void RegisterToEvents()
         {
             SendAsync("servernotifyregister event=channel id=" + ThisChannel.ChannelId);
             if (!ErrorLineReceived.WaitOne(Timeout))
-                throw new Exception("Failed to register to events");
+                throw new FailedToRegisterEventsException("channel");
             SendAsync("servernotifyregister event=textchannel");
             if (!ErrorLineReceived.WaitOne(Timeout))
-                throw new Exception("Failed to register to events");
+                throw new FailedToRegisterEventsException("textchannel");
         }
         private void Reset()
         {
