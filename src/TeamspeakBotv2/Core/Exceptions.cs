@@ -24,13 +24,17 @@ namespace TeamspeakBotv2.Core
 
     public class UserNotInChannelException : Exception
     {
-        public string ClientName { get; set; }
-        public int ClientId { get; set; }
+        public UserNotInChannelEventArgs args { get; set; }
+        public string ClientName { get { return args.ClientName; } }
+        public int ClientId { get { return args.ClientId; } }
 
         public UserNotInChannelException(UserNotInChannelEventArgs args)
         {
-            ClientName = args.ClientName;
-            ClientId = args.ClientId;
+            this.args = args;
+        }
+        public UserNotInChannelException(string username, int id)
+        {
+            args = new UserNotInChannelEventArgs() { ClientName = username, ClientId = id };
         }
     }
 
@@ -40,22 +44,30 @@ namespace TeamspeakBotv2.Core
         public string ClientName { get; set; }
     }
 
-    public class ChannelNotFoundException : Exception{
+    public class ChannelNotFoundException : Exception
+    {
         public string ChannelName { get; set; }
     }
 
-    public class FailedToCreateChannelException : Exception {
+    public class FailedToCreateChannelException : Exception
+    {
         public string ChannelName { get; set; }
     }
 
-    public class FailedToRegisterEventsException : Exception{
-        public FailedToRegisterEventsEventArgs Args { get; set; }
-        public FailedToRegisterEventsException(string event) {
-            Args = new FailedToRegisterEventsEventArgs(){Event = event};
-        }
-    }
-
-    public class FailedToRegisterEventsEventArgs{
+    public class FailedToRegisterEventsEventArgs
+    {
         public string Event { get; set; }
+    }
+
+    public class FailedToRegisterEventsException : Exception
+    {
+        public FailedToRegisterEventsEventArgs Args { get; set; }
+        public FailedToRegisterEventsException(FailedToRegisterEventsEventArgs args)
+        {
+            this.Args = args;
+        }
+        public FailedToRegisterEventsException(){
+            
+        }
     }
 }
