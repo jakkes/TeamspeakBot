@@ -8,21 +8,29 @@ using System.Net;
 using TeamspeakBotv2.Models;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using TeamspeakBotv2.Commands;
 
 namespace TeamspeakBotv2.Core
 {
     public class Channel : IDisposable
     {
+
+        private Queue<Command> _responseQueue = new Queue<Command>();
+
         public event EventHandler Disposed;
-        public bool ConnectedAndActive
+        public bool Active
         {
             get
             {
                 try
                 {
-                    return WhoAmI().ChannelId == ThisChannel.ChannelId && connection.Connected;
+                    return connection.Connected && WhoAmI().ChannelId == ThisChannel.ChannelId;
                 } catch (Exception) { return false; }
             }
+        }
+        public bool Connected
+        {
+            get { return connection.Connected; }
         }
         private AutoResetEvent ErrorLineReceived = new AutoResetEvent(false);
         private AutoResetEvent WhoAmIReceived = new AutoResetEvent(false);
@@ -67,7 +75,7 @@ namespace TeamspeakBotv2.Core
                 Console.WriteLine(ex.Message);
             }
             readTimer = new Timer(new TimerCallback(Read), null, 0, 100);
-            Login(username,password,defaultchannel,channel,parent,serverId);
+            init(username,password,defaultchannel,channel,parent,serverId);
             loopTimer = new Timer(new TimerCallback((object state) =>
             {
                 try
@@ -96,9 +104,101 @@ namespace TeamspeakBotv2.Core
             }), null, 5000, 10000);
             Console.WriteLine("Starting bot in " + channel);
         }
-        
-        private void Login(string username, string password, string defaultChannel, string channel, string parent, int serverId)
+
+        /// <summary>
+        /// Logs into the query
+        /// </summary>
+        /// <param name="username">Query username</param>
+        /// <param name="password">Query password</param>
+        internal void _login(string username, string password)
         {
+            var cmd = new LoginCommand(username, password);
+            if (!Send(cmd))
+                throw new LoginException(cmd.ErrorMessage);
+        }
+        /// <summary>
+        /// Selects server
+        /// </summary>
+        /// <param name="id">Server id</param>
+        internal void _selectServer(int id)
+        {
+            var cmd = new SelectServerCommand(id);
+            if (!Send(cmd))
+                throw new SelectServerException();
+        }
+        /// <summary>
+        /// Creates and moves the bot to a temporary channel.
+        /// </summary>
+        /// <param name="channelName">Channel name</param>
+        /// <param name="parent">Parent channel</param>
+        /// <exception cref="CreateChannelException">If failed.</exception>
+        internal void _createChannel(string channelName, ChannelModel parent)
+        {
+            _createChannel(channelName, parent.ChannelId);
+        }
+        /// <summary>
+        /// Creates and moves the bot to a temporary channel.
+        /// </summary>
+        /// <param name="channelName">Channel name</param>
+        /// <param name="parentId">ID of parent channel</param>
+        /// <exception cref="CreateChannelException">If failed.</exception>
+        internal void _createChannel(string channelName, int parentId)
+        {
+            var cmd = new CreateChannelCommand(channelName, parentId);
+            if (!Send(cmd))
+                throw new CreateChannelException(channelName);
+        }
+        internal ChannelModel _getChannel(string channelName)
+        {
+
+        }
+        /// <summary>
+        /// Waits for one event to set.
+        /// </summary>
+        /// <param name="handles">Handlers</param>
+        /// <returns>Index of which handler set.</returns>
+        internal int waitAnyEvent(params AutoResetEvent[] handles)
+        {
+            return WaitHandle.WaitAny(handles);
+        }
+        /// <summary>
+        /// Waits for one event to set.
+        /// </summary>
+        /// <param name="handles">Handlers</param>
+        /// <returns>Index of which handler set.</returns>
+        /// <exception cref="TimeoutException">Timeout</exception>
+        internal int waitAnyEvent(int timeout, params AutoResetEvent[] handles)
+        {
+            int r = WaitHandle.WaitAny(handles, timeout);
+            if (r == WaitHandle.WaitTimeout)
+                throw new TimeoutException("Timeout");
+            return r;
+        }
+        
+        
+        
+        /// <summary>
+        /// Logs onto the server and initilizes the bot.
+        /// </summary>
+        /// <param name="username">Query username</param>
+        /// <param name="password">Query password</param>
+        /// <param name="defaultChannel">Password to kick people into.</param>
+        /// <param name="channel">Channel name</param>
+        /// <param name="parent">Parent channel name</param>
+        /// <param name="serverId">Server id</param>
+        private void init(string username, string password, string defaultChannel, string channel, string parent, int serverId)
+        {
+            try
+            {
+                _login(username, password);
+                _selectServer(serverId);
+                
+            } catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Dispose();
+            }
+
             SendAsync(string.Format("login {0} {1}", username, password));
             if (ErrorLineReceived.WaitOne(Timeout))
             {
@@ -121,19 +221,9 @@ namespace TeamspeakBotv2.Core
 
         }
         /// <summary>
-        /// Creates a temporary channel. Throws CreateChannelException on error.
-        /// </summary>
-        /// <param name="channelName">Name of channel.</param>
-        /// <param name="parent">Parent channel under which the channel should be created.</param>
-        private void _createChannel(string channelName, ChannelModel parent){
-            SendAsync(string.Format("channelcreate channel_name={0} cpid={1}",channelName, parent.ChannelId));
-            if(ErrorLineReceived.WaitOne(Timeout))
-                return;
-            else throw new CreateChannelException(channelName);
-        }
-        /// <summary>
         /// Registers the bot to necessary events. Throws FailedToRegisterToEventsException if unable to register.
         /// </summary>
+        /// <exception cref="FailedToRegisterEventsException">Throws when unable to register to an event.</exception>
         private void RegisterToEvents()
         {
             SendAsync("servernotifyregister event=channel id=" + ThisChannel.ChannelId);
@@ -300,6 +390,23 @@ namespace TeamspeakBotv2.Core
         private void Send(string message)
         {
             connection.Send(Encoding.ASCII.GetBytes(message + "\n\r"));
+        }
+        /// <summary>
+        /// Sends a command to the server and then places it in the response queue.
+        /// </summary>
+        /// <param name="cmd">Command to be sent.</param>
+        private bool Send(Command cmd)
+        {
+            _send(cmd.Message);
+            _responseQueue.Enqueue(cmd);
+            try
+            {
+                return waitAnyEvent(Timeout, cmd.Success, cmd.Failed) == 0;
+            } catch (TimeoutException) { return false; }
+        }
+        internal void _send(string message)
+        {
+            Task.Run(() => { connection.Send(Encoding.ASCII.GetBytes(message + "\n\r")); });
         }
         private void SendTextMessage(string message)
         {

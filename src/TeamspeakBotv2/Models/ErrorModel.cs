@@ -4,6 +4,7 @@ namespace TeamspeakBotv2.Models
 {
     public class ErrorModel
     {
+        public bool Error { get { return Id != 0} }
         public int Id { get; set; }
         public string Message { get; set; }
         public string Line { get; set; }

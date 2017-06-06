@@ -78,4 +78,19 @@ namespace TeamspeakBotv2.Core
         }
         public FailedToRegisterEventsException() : base("Failed to register to events"){}
     }
+
+    public class LoginException : Exception
+    {
+        public LoginException(string msg) : base(msg)
+        {
+        }
+        public LoginException() : base("Failed to login.")
+        {
+        }
+    }
+
+    public class SelectServerException : Exception
+    {
+        public SelectServerException() : base("Failed to select server") { }
+    }
 }
