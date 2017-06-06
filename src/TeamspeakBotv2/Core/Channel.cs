@@ -113,8 +113,9 @@ namespace TeamspeakBotv2.Core
         internal void _login(string username, string password)
         {
             var cmd = new LoginCommand(username, password);
-            if (!Send(cmd))
-                throw new LoginException(cmd.ErrorMessage);
+            Send(cmd);
+            if(!cmd.Succeeded(Timeout))
+                throw new LoginException();
         }
         /// <summary>
         /// Selects server
@@ -123,7 +124,8 @@ namespace TeamspeakBotv2.Core
         internal void _selectServer(int id)
         {
             var cmd = new SelectServerCommand(id);
-            if (!Send(cmd))
+            Send(cmd);
+            if(cmd.Succeeded(Timeout))
                 throw new SelectServerException();
         }
         /// <summary>
@@ -145,7 +147,8 @@ namespace TeamspeakBotv2.Core
         internal void _createChannel(string channelName, int parentId)
         {
             var cmd = new CreateChannelCommand(channelName, parentId);
-            if (!Send(cmd))
+            Send(cmd);
+            if(cmd.Succeeded(Timeout))
                 throw new CreateChannelException(channelName);
         }
         internal ChannelModel _getChannel(string channelName)
@@ -192,6 +195,10 @@ namespace TeamspeakBotv2.Core
             {
                 _login(username, password);
                 _selectServer(serverId);
+                _createChannel(channel, _getChannel(parent));
+                ThisChannel = _getChannel(channel);
+                DefaultChannel = _getChannel(defaultChannel);
+                RealChannelName = channel;
                 
             } catch (Exception ex)
             {
@@ -266,17 +273,12 @@ namespace TeamspeakBotv2.Core
         }
         private ChannelModel GetChannel(int cid)
         {
-            if (ChannelList == null)
-                UpdateChannelList();
-            ChannelModel re;
-            if ((re = ChannelList.FirstOrDefault(x => x.ChannelId == cid)) != null)
-                return re;
-            else
-            {
-                UpdateChannelList();
-                if ((re = ChannelList.FirstOrDefault(x => x.ChannelId == cid)) != null)
-                    return re;
-                else throw new Exception("There is no channel with id: " + cid.ToString());
+            var cmd = new GetChannelCommand(cid);
+            Send(cmd);
+            if(!cmd.Succeeded(Timeout))
+                throw new GetChannelException(cid);
+            else{
+                return cmd.Result;
             }
         }
         private ChannelModel GetChannel(string name)
@@ -395,14 +397,10 @@ namespace TeamspeakBotv2.Core
         /// Sends a command to the server and then places it in the response queue.
         /// </summary>
         /// <param name="cmd">Command to be sent.</param>
-        private bool Send(Command cmd)
+        private void Send(Command cmd)
         {
             _send(cmd.Message);
             _responseQueue.Enqueue(cmd);
-            try
-            {
-                return waitAnyEvent(Timeout, cmd.Success, cmd.Failed) == 0;
-            } catch (TimeoutException) { return false; }
         }
         internal void _send(string message)
         {

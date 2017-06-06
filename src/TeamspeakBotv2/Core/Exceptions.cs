@@ -44,11 +44,6 @@ namespace TeamspeakBotv2.Core
         public string ClientName { get; set; }
     }
 
-    public class ChannelNotFoundException : Exception
-    {
-        public string ChannelName { get; set; }
-    }
-
     public class CreateChannelException : Exception
     {
         public string ChannelName { get; set; }
@@ -56,29 +51,20 @@ namespace TeamspeakBotv2.Core
             ChannelName = channel;
         }
     }
-
-    public class FailedToRegisterEventsEventArgs
-    {
-        public string Event { get; set; }
-        public FailedToRegisterEventsEventArgs(string ev){
-            Event = ev;
+    public class GetChannelException : Exception{
+        public string ChannelName { get; set; }
+        public int? ChannelId { get; set; }
+        public GetChannelException(string channelName) : base("Could not find channel " + channelName){
+            ChannelName = channelName;
         }
-        public FailedToRegisterEventsEventArgs(){}
+        public GetChannelException(int cid) : base("Could not find channel id " + cid){
+            ChannelId = cid;
+        }
+        public GetChannelException(string name, int cid) : base("Could not find channel " + name + ". ID: " + cid){
+            ChannelId = cid;
+            ChannelName = name;
+        }
     }
-
-    public class FailedToRegisterEventsException : Exception
-    {
-        public FailedToRegisterEventsEventArgs Args { get; set; }
-        public FailedToRegisterEventsException(FailedToRegisterEventsEventArgs args) : this()
-        {
-            this.Args = args;
-        }
-        public FailedToRegisterEventsException(string ev) : this(){
-            Args = new FailedToRegisterEventsEventArgs(ev);
-        }
-        public FailedToRegisterEventsException() : base("Failed to register to events"){}
-    }
-
     public class LoginException : Exception
     {
         public LoginException(string msg) : base(msg)
