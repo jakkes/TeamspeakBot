@@ -23,6 +23,10 @@ namespace TeamspeakBotv2.Commands
                         Result = mo;
                         return;
                     }
+                } else
+                {
+                    _failed("Failed to match regex.");
+                    throw new RegexMatchException();
                 }
             }
             _failed("Could not find channel.");

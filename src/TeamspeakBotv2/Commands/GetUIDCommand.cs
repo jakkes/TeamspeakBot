@@ -23,7 +23,10 @@ namespace TeamspeakBotv2.Commands
                     _failed("Client ID did not match.");
             }
             else
-                _failed("Message did not match regex.");
+            {
+                _failed("Failed to match regex.");
+                throw new RegexMatchException();
+            }
         }
     }
 

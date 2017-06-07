@@ -35,6 +35,11 @@ namespace TeamspeakBotv2.Commands
                         return;
                     }
                 }
+                else
+                {
+                    _failed("Failed to match regex.");
+                    throw new RegexMatchException();
+                }
             }
             _failed("Could not find user.");
         }

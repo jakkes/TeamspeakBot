@@ -39,4 +39,12 @@ namespace TeamspeakBotv2.Commands
                 _failed(mo.Message);
         }
     }
+    public class RegexMatchException : Exception
+    {
+        public RegexMatchException(string msg) : base(msg) { }
+        public RegexMatchException() : base("Failed to match regex.")
+        {
+
+        }
+    }
 }
