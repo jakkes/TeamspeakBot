@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace TeamspeakBotv2.Models
 {
-    interface IUser
+    public interface IUser
     {
         int ClientId { get; set; }
     }

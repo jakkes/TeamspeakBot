@@ -82,7 +82,7 @@ namespace TeamspeakBotv2.Core
                 {
                     if (Owner != null)
                     {
-                        var m = GetClient(Owner.ClientId);
+                        var m = _getClient(Owner.ClientId);
                         if (m.ChannelId != ThisChannel.ChannelId)
                             throw new Exception();
                     }
@@ -151,31 +151,18 @@ namespace TeamspeakBotv2.Core
             if(cmd.Succeeded(Timeout))
                 throw new CreateChannelException(channelName);
         }
+        /// <summary>
+        /// Gets information of a channel.
+        /// </summary>
+        /// <param name="channelName">Name of channel</param>
+        /// <returns>The channel</returns>
         internal ChannelModel _getChannel(string channelName)
         {
-
-        }
-        /// <summary>
-        /// Waits for one event to set.
-        /// </summary>
-        /// <param name="handles">Handlers</param>
-        /// <returns>Index of which handler set.</returns>
-        internal int waitAnyEvent(params AutoResetEvent[] handles)
-        {
-            return WaitHandle.WaitAny(handles);
-        }
-        /// <summary>
-        /// Waits for one event to set.
-        /// </summary>
-        /// <param name="handles">Handlers</param>
-        /// <returns>Index of which handler set.</returns>
-        /// <exception cref="TimeoutException">Timeout</exception>
-        internal int waitAnyEvent(int timeout, params AutoResetEvent[] handles)
-        {
-            int r = WaitHandle.WaitAny(handles, timeout);
-            if (r == WaitHandle.WaitTimeout)
-                throw new TimeoutException("Timeout");
-            return r;
+            var cmd = new GetChannelCommand(channelName);
+            if(SendSuccessfully(cmd,Timeout))
+                return cmd.Result;
+            else
+                throw new GetChannelException(channelName);
         }
         
         
@@ -199,46 +186,22 @@ namespace TeamspeakBotv2.Core
                 ThisChannel = _getChannel(channel);
                 DefaultChannel = _getChannel(defaultChannel);
                 RealChannelName = channel;
+                _registerToEvents();
                 
             } catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
                 Dispose();
             }
-
-            SendAsync(string.Format("login {0} {1}", username, password));
-            if (ErrorLineReceived.WaitOne(Timeout))
-            {
-                SendAsync(string.Format("use sid={0}", serverId));
-                if (ErrorLineReceived.WaitOne(Timeout))
-                {
-                    var m = WhoAmI();
-                    _createChannel(channel,GetChannel(parent));
-                    ThisChannel = GetChannel(channel);
-                    RealChannelName = channel;
-                    DefaultChannel = GetChannel(defaultChannel);
-                    MoveClient(m, ThisChannel);
-                    RegisterToEvents();
-                    return;
-                }
-                throw new Exception("Could not select server");
-            }
-
-            throw new Exception("Error when logging in");
-
         }
-        /// <summary>
-        /// Registers the bot to necessary events. Throws FailedToRegisterToEventsException if unable to register.
-        /// </summary>
-        /// <exception cref="FailedToRegisterEventsException">Throws when unable to register to an event.</exception>
-        private void RegisterToEvents()
+        private void _registerToEvents()
         {
-            SendAsync("servernotifyregister event=channel id=" + ThisChannel.ChannelId);
-            if (!ErrorLineReceived.WaitOne(Timeout))
-                throw new FailedToRegisterEventsException("channel");
-            SendAsync("servernotifyregister event=textchannel");
-            if (!ErrorLineReceived.WaitOne(Timeout))
-                throw new FailedToRegisterEventsException("textchannel");
+            if(!SendSuccessfully(new RegisterToEventCommand(Event.Channel,ThisChannel.ChannelId),Timeout)){
+                throw new RegisterToEventException(Event.Channel);
+            }
+            if(!!SendSuccessfully(new RegisterToEventCommand(Event.TextChannel,ThisChannel.ChannelId),Timeout)){
+                throw new RegisterToEventException(Event.TextChannel);
+            }
         }
         private void Reset()
         {
@@ -265,102 +228,49 @@ namespace TeamspeakBotv2.Core
         {
             return Owner != null && Owner.UniqueId == UniqueId;
         }
-        private WhoAmIModel WhoAmI()
+        private string _getUID(int clid)
         {
-            SendAsync("whoami");
-            WhoAmIReceived.WaitOne();
-            return Me;
-        }
-        private ChannelModel GetChannel(int cid)
-        {
-            var cmd = new GetChannelCommand(cid);
-            Send(cmd);
-            if(!cmd.Succeeded(Timeout))
-                throw new GetChannelException(cid);
-            else{
+            var cmd = new GetUIDCommand(clid);
+            if(SendSuccessfully(cmd, Timeout)){
                 return cmd.Result;
+            } else 
+                throw new GetUIDException(cmd.ErrorMessage);
+        }
+        private string _getUID(ClientModel client) => _getUID(client.ClientId);
+        private void _moveClient(IUser user, ChannelModel targetChannel)
+        {
+            if(!SendSuccessfully(new MoveClientCommand(user, targetChannel), Timeout)){
+                throw new MoveClientException();
             }
         }
-        private ChannelModel GetChannel(string name)
+        private void _pokeClient(int clid, string message)
         {
-            if (ChannelList == null)
-                UpdateChannelList();
-            ChannelModel re;
-            if ((re = ChannelList.FirstOrDefault(x => x.ChannelName == name)) != null)
-                return re;
+            if(!SendSuccessfully(new PokeClientCommand(clid,message),Timeout))
+                throw new PokeClientException();
+        }
+        private void _pokeClient(IUser user, string msg) => _pokeClient(user.ClientId, msg);
+        private ClientModel _getClient(string name)
+        {
+            var cmd = new GetClientCommand(name);
+            if(!SendSuccessfully(cmd, Timeout))
+                throw new GetClientException();
             else
+                return cmd.Result;
+        }
+        private ClientModel _getClient(int clid)
+        {
             {
-                UpdateChannelList();
-                if ((re = ChannelList.FirstOrDefault(x => x.ChannelName == name)) != null)
-                    return re;
-                else throw new Exception("There is no channel with name: " + name);
-            }
-        }
-        private string GetUniqueId(int clid)
-        {
-            SendAsync(string.Format("clientgetuidfromclid clid={0}", clid));
-            while(ClientUniqueIdFromClidReceived.WaitOne(Timeout))
-            {
-                GetUidFromClidModel re;
-                if((re = UidFromClidResponses.FirstOrDefault(x => x.ClientId == clid)) != null)
-                {
-                    UidFromClidResponses.Remove(re);
-                    return re.ClientUniqueId;
-                }
-            }
-            throw new UserNotFoundException(new UserNotFoundEventArgs() { ClientId = clid });
-        }
-        private string GetUniqueId(ClientModel client) => GetUniqueId(client.ClientId);
-        private void MoveClient(IUser user, ChannelModel targetChannel)
-        {
-            SendAsync(string.Format("clientmove clid={0} cid={1}", user.ClientId, targetChannel.ChannelId));
-        }
-        private void PokeClient(IUser user, string message)
-        {
-            SendAsync(string.Format("clientpoke clid={0} msg={1}", user.ClientId, message.Replace(" ", "\\s")));
-        }
-        private ClientModel GetClient(string name)
-        {
-            ClientModel m;
-            if ((m = ClientList.FirstOrDefault(x => x.ClientName.ToLower() == name.ToLower())) != null)
-            {
-                m.UniqueId = GetUniqueId(m);
-                return m;
-            }
+            var cmd = new GetClientCommand(clid);
+            if(!SendSuccessfully(cmd, Timeout))
+                throw new GetClientException();
             else
-            {
-                UpdateClientList();
-                if ((m = ClientList.FirstOrDefault(x => x.ClientName.ToLower() == name.ToLower())) != null)
-                {
-                    m.UniqueId = GetUniqueId(m);
-                    return m;
-                }
-                else throw new UserNotFoundException(new UserNotFoundEventArgs() { ClientName = name });
-            }
+                return cmd.Result;
         }
-        private ClientModel GetClient(int clid)
-        {
-            ClientModel m;
-            if ((m = ClientList.FirstOrDefault(x => x.ClientId == clid)) != null)
-            {
-                m.UniqueId = GetUniqueId(m);
-                return m;
-            }
-            else
-            {
-                UpdateClientList();
-                if ((m = ClientList.FirstOrDefault(x => x.ClientId == clid)) != null)
-                {
-                    m.UniqueId = GetUniqueId(m);
-                    return m;
-                }
-                else throw new UserNotFoundException(new UserNotFoundEventArgs() { ClientId = clid });
-            }
         }
         private DetailedClientModel GetDetailedClient(ClientModel model)
         {
             if (string.IsNullOrEmpty(model.UniqueId))
-                model.UniqueId = GetUniqueId(model);
+                model.UniqueId = _getUID(model);
             SendAsync(string.Format("clientinfo clid={0}", model.ClientId));
             while (DetailedClientReceived.WaitOne(Timeout))
             {
@@ -401,6 +311,16 @@ namespace TeamspeakBotv2.Core
         {
             _send(cmd.Message);
             _responseQueue.Enqueue(cmd);
+        }
+        /// <summary>
+        /// Sends a command to the query and waits for the result.
+        /// </summary>
+        /// <param name="cmd">Command to be sent</param>
+        /// <param name="timeout">Timeout</param>
+        /// <returns>True if successful, false if an error was encountered.</returns>
+        private bool SendSuccessfully(Command cmd, int timeout){
+            Send(cmd);
+            return cmd.Succeeded(timeout);
         }
         internal void _send(string message)
         {
@@ -522,7 +442,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                ClientModel client = GetClient(model.ClientId);
+                ClientModel client = _getClient(model.ClientId);
                 client.ChannelId = model.ToChannelId;
                 ClientJoined(client);
             } catch (UserNotFoundException) { }
@@ -541,7 +461,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                ClientModel client = GetClient(model.ClientId);
+                ClientModel client = _getClient(model.ClientId);
                 client.ChannelId = model.ChannelToId;
                 if (model.ChannelToId != ThisChannel.ChannelId)
                     ClientLeft(client);
@@ -615,7 +535,7 @@ namespace TeamspeakBotv2.Core
         {
             if (GetDetailedClient(client).ChannelId == ThisChannel.ChannelId)
             {
-                MoveClient(client, DefaultChannel);
+                _moveClient(client, DefaultChannel);
             }
             else throw new UserNotInChannelException(new UserNotInChannelEventArgs() { ClientId = client.ClientId, ClientName = client.ClientName });
         }
@@ -627,7 +547,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                var client = GetClient(name);
+                var client = _getClient(name);
                 config.Ban(client.UniqueId,name);
                 SendTextMessage(name + " is now banned from this channel.");
                 Kick(client);
@@ -641,7 +561,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                config.Unban(GetClient(name).UniqueId);
+                config.Unban(_getClient(name).UniqueId);
             } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
         }
         private void HandleMessage(MessageModel model)
@@ -670,7 +590,7 @@ namespace TeamspeakBotv2.Core
 
                         if (model.Words[0] == "!kick")
                         {
-                            try { Kick(GetClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
+                            try { Kick(_getClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); }
                             catch (UserNotFoundException ex) { SendTextMessage("Could not find user " + ex.ClientName); }
                             catch (UserNotInChannelException ex) { SendTextMessage(ex.ClientName + " is not in this channel."); }
                         }
@@ -807,7 +727,7 @@ namespace TeamspeakBotv2.Core
             {
                 try
                 {
-                    SetOwner(GetClient(model.ClientId));
+                    SetOwner(_getClient(model.ClientId));
                 }
                 catch (UserNotFoundException) { SendTextMessage("Something went wrong..."); }
             }
@@ -822,7 +742,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                var Client = GetClient(name);
+                var Client = _getClient(name);
                 var DetailedClient = GetDetailedClient(Client);
                 if (DetailedClient.ChannelId == ThisChannel.ChannelId)
                 {
@@ -837,7 +757,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                config.AddToWhitelist(GetClient(name).UniqueId,name);
+                config.AddToWhitelist(_getClient(name).UniqueId,name);
                 SendTextMessage(name + " is now on the whitelist.");
             }
             catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
@@ -847,7 +767,7 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                config.RemoveFromWhitelist(GetClient(name).UniqueId);
+                config.RemoveFromWhitelist(_getClient(name).UniqueId);
             } catch (UserNotFoundException) { SendTextMessage("Could not find user " + name); }
         }
         private void DeactiveWhitelist() => config.UseBanlist();

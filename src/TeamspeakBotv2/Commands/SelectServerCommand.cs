@@ -40,4 +40,9 @@ namespace TeamspeakBotv2.Commands
             Message = string.Format("use sid={0}", serverId);
         }
     }
+
+    public class SelectServerException : Exception
+    {
+        public SelectServerException() : base("Failed to select server") { }
+    }
 }

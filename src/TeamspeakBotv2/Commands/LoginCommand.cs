@@ -37,4 +37,14 @@ namespace TeamspeakBotv2.Commands
             Message = string.Format("login {0} {1}", username, password);
         }
     }
+
+    public class LoginException : Exception
+    {
+        public LoginException(string msg) : base(msg)
+        {
+        }
+        public LoginException() : base("Failed to login.")
+        {
+        }
+    }
 }

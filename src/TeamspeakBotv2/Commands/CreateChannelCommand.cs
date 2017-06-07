@@ -22,17 +22,15 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
-            var m = RegPatterns.ErrorLine.Match(msg);
-            if (!m.Success)
-                Failed.Set();
-            else
-            {
-                var mo = new ErrorModel(m);
-                if (mo.Error)
-                    Failed.Set();
-                else
-                    Success.Set();
-            }
+            
+        }
+    }
+
+    public class CreateChannelException : Exception
+    {
+        public string ChannelName { get; set; }
+        public CreateChannelException(string channel) : base("Failed to create channel " + channel){
+            ChannelName = channel;
         }
     }
 }

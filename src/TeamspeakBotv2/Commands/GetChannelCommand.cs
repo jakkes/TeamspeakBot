@@ -21,7 +21,6 @@ namespace TeamspeakBotv2.Commands
                     var mo = new ChannelModel(m);
                     if((_cid != -1 && mo.ChannelId == _cid) || (!string.IsNullOrEmpty(_name) && mo.ChannelName == _name)){
                         Result = mo;
-                        Success.Set();
                         return;
                     }
                 }
@@ -34,8 +33,23 @@ namespace TeamspeakBotv2.Commands
         public GetChannelCommand(int cid) : this() {
             _cid = cid;
         }
-        private GetChannelCommand() : this(){
+        private GetChannelCommand(){
             Message = "channellist";
+        }
+    }
+
+    public class GetChannelException : Exception{
+        public string ChannelName { get; set; }
+        public int? ChannelId { get; set; }
+        public GetChannelException(string channelName) : base("Could not find channel " + channelName){
+            ChannelName = channelName;
+        }
+        public GetChannelException(int cid) : base("Could not find channel id " + cid){
+            ChannelId = cid;
+        }
+        public GetChannelException(string name, int cid) : base("Could not find channel " + name + ". ID: " + cid){
+            ChannelId = cid;
+            ChannelName = name;
         }
     }
 }
