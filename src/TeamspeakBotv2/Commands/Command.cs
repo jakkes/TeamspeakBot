@@ -7,7 +7,7 @@ namespace TeamspeakBotv2.Commands
 {
     public abstract class Command
     {
-        public string Message { get; protected set; }
+        internal string Message { get; set; }
         public string ErrorMessage { get; protected set; }
         public ErrorModel Error { get; protected set; }
         public abstract void HandleResponse(string msg);

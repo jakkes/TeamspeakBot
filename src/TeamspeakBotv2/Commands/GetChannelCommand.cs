@@ -25,7 +25,6 @@ namespace TeamspeakBotv2.Commands
                     }
                 } else
                 {
-                    _failed("Failed to match regex.");
                     throw new RegexMatchException();
                 }
             }

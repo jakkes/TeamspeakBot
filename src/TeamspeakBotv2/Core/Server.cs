@@ -66,7 +66,7 @@ namespace TeamspeakBotv2.Core
             {
                 try
                 {
-                    var cha = new Channel(name, config.Parent, config.DefaultChannel, Host, Username, Password, config.Id, Timeout);
+                    var cha = new Channel(name, config.Parent, config.DefaultChannel, Host, Username, Password, config.Id, Timeout, config.BanTime);
                     cha.Disposed += ChannelDisposed;
                     Channels.Add(cha);
                 }
