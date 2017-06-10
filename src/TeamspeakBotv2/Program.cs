@@ -28,7 +28,7 @@ namespace TeamspeakBotv2
             StartRange(cnf);
 
             // Start update timer
-            tmr = new Timer(new TimerCallback(UpdateConfig), null, 10000, 10000);
+            tmr = new Timer(new TimerCallback(UpdateConfig), null, 300000, 300000);
 
             // Loop until exit command
             while (Console.ReadLine() != "exit")
@@ -68,7 +68,7 @@ namespace TeamspeakBotv2
         }
         private static void UpdateConfig(object state)
         {
-            Console.WriteLine("Updating config.");
+            Console.WriteLine("Updating config...");
 
             HostConfig[] cnf;
             try { cnf = LoadConfig(); }
@@ -98,6 +98,8 @@ namespace TeamspeakBotv2
                 if (!found)
                     try { Start(host); }
                     catch(Exception ex) { Console.WriteLine("Failed to start host on update."); Console.WriteLine(ex.Message); }
+
+                Console.WriteLine("Update done.");
             }
 
             // Update list
