@@ -17,47 +17,106 @@ namespace TeamspeakBotv2
         static Timer tmr;
         public static void Main(string[] args)
         {
-            Console.WriteLine("Welcome.");
-            var cnf = LoadConfig();
-            foreach(var host in cnf)
-            {
-                hosts.Add(new Host(host));
-            }
-            tmr = new Timer(new TimerCallback(UpdateConfig), null, 300000, 120000);
-            while(Console.ReadLine() != "exit")
+            Console.WriteLine("Welcome. Version 2.0");
+
+
+            // Start hosts
+            HostConfig[] cnf;
+            try { cnf = LoadConfig(); }
+            catch (FileNotFoundException) { Console.WriteLine("Configuration file was not found."); Console.Read(); return; }
+            catch (JsonReaderException ex) { Console.WriteLine("Failed parsing the configuration file."); Console.WriteLine(ex.Message); return; }
+            StartRange(cnf);
+
+            // Start update timer
+            tmr = new Timer(new TimerCallback(UpdateConfig), null, 10000, 10000);
+
+            // Loop until exit command
+            while (Console.ReadLine() != "exit")
             {
 
             }
+
+            // Shutdown
             foreach(var host in hosts)
-            {
                 host.Dispose();
+        }
+        /// <summary>
+        /// Starts hosts
+        /// </summary>
+        /// <param name="cnf">Hosts to start.</param>
+        static void StartRange(HostConfig[] cnf)
+        {
+            foreach (var host in cnf)
+            {
+                try { Start(host); }
+                catch(Exception ex) { Console.WriteLine("Failed to start host."); Console.WriteLine(ex.Message); }
             }
         }
-
+        /// <summary>
+        /// Starts a host
+        /// </summary>
+        /// <param name="cnf">Host config</param>
+        static void Start(HostConfig cnf)
+        {
+            var h = new Host(cnf);
+            h.Disposed += Host_Dispoed;
+            hosts.Add(h);
+        }
+        private static void Host_Dispoed(object sender, EventArgs e)
+        {
+            hosts.Remove((Host)sender);
+        }
         private static void UpdateConfig(object state)
         {
-            var cnf = LoadConfig();
+            Console.WriteLine("Updating config.");
+
+            HostConfig[] cnf;
+            try { cnf = LoadConfig(); }
+            catch (FileNotFoundException) { Console.WriteLine("Configuration file is missing. Failed to update."); return; }
+            catch (JsonReaderException ex) { Console.WriteLine("Failed parsing the configuration file."); Console.WriteLine(ex.Message); return; }
+
+            var currHosts = hosts.ToArray();
+            var exists = new bool[currHosts.Length];
+            hosts = new List<Host>();
+
             foreach(var host in cnf)
             {
-                Host h;
-                if((h = hosts.FirstOrDefault(x => x.Endpoint.Address.ToString() == host.Host)) != null)
+                // Check if host is running
+                bool found = false;
+                for(int i = 0; i < currHosts.Length; i++)
                 {
-                    h.UpdateConfig(host);
+                    if(host.Host == currHosts[i].Endpoint.Address.ToString() && host.Port == currHosts[i].Endpoint.Port)
+                    {
+                        found = true;
+                        exists[i] = true;
+                        // Update host
+                        currHosts[i].UpdateConfig(host);
+                        break;
+                    }
                 }
+                // If not running, start it.
+                if (!found)
+                    try { Start(host); }
+                    catch(Exception ex) { Console.WriteLine("Failed to start host on update."); Console.WriteLine(ex.Message); }
+            }
+
+            // Update list
+            for(int i = 0; i < currHosts.Length; i++)
+            {
+                if (exists[i])
+                    hosts.Add(currHosts[i]);
+                else
+                    currHosts[i].Dispose();
             }
         }
-
+        /// <summary>
+        /// Loads the configuration file.
+        /// </summary>
+        /// <returns>Configuration</returns>
+        /// <exception cref="FileNotFoundException"></exception>
         public static HostConfig[] LoadConfig()
         {
-            try
-            {
-                return JsonConvert.DeserializeObject<HostConfig[]>(File.ReadAllText(ConfigFilePath));
-            }
-            catch (FileNotFoundException)
-            {
-                Console.WriteLine("Could not find configuration file.");
-                throw;
-            }
+            return JsonConvert.DeserializeObject<HostConfig[]>(File.ReadAllText(ConfigFilePath));
         }
     }
 }

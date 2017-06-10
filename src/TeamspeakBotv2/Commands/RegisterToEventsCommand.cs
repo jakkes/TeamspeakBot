@@ -20,16 +20,4 @@ namespace TeamspeakBotv2.Commands
         Channel,
         TextChannel
     }
-    public class RegisterToEventException : Exception
-    {
-        public Event Ev { get; set; }
-        public RegisterToEventException(string msg, Event ev) : base(msg)
-        {
-            Ev = ev;
-        }
-        public RegisterToEventException(Event ev) : base("Failed to register to event.")
-        {
-            Ev = ev;
-        }
-    }
 }

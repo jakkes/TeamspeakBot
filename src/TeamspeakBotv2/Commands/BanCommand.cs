@@ -20,9 +20,4 @@ namespace TeamspeakBotv2.Commands
             
         }
     }
-    public class BanException : Exception
-    {
-        public BanException() : base("Failed to ban.") { }
-        public BanException(string msg) : base(msg) { }
-    }
 }

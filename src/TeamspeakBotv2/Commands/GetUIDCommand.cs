@@ -29,13 +29,4 @@ namespace TeamspeakBotv2.Commands
             }
         }
     }
-
-    public class GetUIDException : Exception{
-        public GetUIDException(string msg) : base(msg){
-
-        }
-        public GetUIDException() : base("Failed to retrieve UID."){
-            
-        }
-    }
 }

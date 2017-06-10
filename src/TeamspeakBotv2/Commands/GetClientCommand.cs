@@ -44,13 +44,4 @@ namespace TeamspeakBotv2.Commands
             _failed("Could not find user.");
         }
     }
-
-    public class GetClientException : Exception{
-        public GetClientException() : base("Could not find user"){
-
-        }
-        public GetClientException(string msg) :base(msg){
-            
-        }
-    }
 }

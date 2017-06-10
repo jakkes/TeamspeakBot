@@ -17,10 +17,4 @@ namespace TeamspeakBotv2.Commands
             
         }
     }
-
-    public class PokeClientException : Exception{
-        public PokeClientException() : base("Failed to poke client"){
-
-        }
-    }
 }

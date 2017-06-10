@@ -11,15 +11,4 @@ namespace TeamspeakBotv2.Commands {
             
         }
     }
-
-    public class SetChannelNameException : Exception{
-        public SetChannelNameException(string msg) : base(msg)
-        {
-            
-        }
-        public SetChannelNameException() : base("Failed to set channel name.")
-        {
-            
-        }
-    }
 }

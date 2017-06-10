@@ -20,15 +20,4 @@ namespace TeamspeakBotv2.Commands
             }
         }
     }
-
-    public class WhoAmIException : Exception{
-        public WhoAmIException(string msg) : base(msg)
-        {
-            
-        }
-        public WhoAmIException() : base("Failed to retreive who am i info")
-        {
-            
-        }
-    }
 }

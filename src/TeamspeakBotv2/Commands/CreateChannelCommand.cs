@@ -25,12 +25,4 @@ namespace TeamspeakBotv2.Commands
             
         }
     }
-
-    public class CreateChannelException : Exception
-    {
-        public string ChannelName { get; set; }
-        public CreateChannelException(string channel) : base("Failed to create channel " + channel){
-            ChannelName = channel;
-        }
-    }
 }

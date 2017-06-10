@@ -15,15 +15,4 @@ namespace TeamspeakBotv2.Commands
             
         }
     }
-    public class SendTextCommandException : Exception
-    {
-        public SendTextCommandException() : base("Failed to send text message.")
-        {
-
-        }
-        public SendTextCommandException(string msg): base(msg)
-        {
-
-        }
-    }
 }

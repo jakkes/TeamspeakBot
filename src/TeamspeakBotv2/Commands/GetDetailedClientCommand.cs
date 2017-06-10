@@ -27,13 +27,4 @@ namespace TeamspeakBotv2.Commands
             Message = string.Format("clientinfo clid={0}", clid);
         }
     }
-
-    public class GetDetailedClientException : Exception
-    {
-        public GetDetailedClientException() : base("Failed to retrieve detailed client information.")
-        {
-
-        }
-        public GetDetailedClientException(string msg) : base(msg) { }
-    }
 }

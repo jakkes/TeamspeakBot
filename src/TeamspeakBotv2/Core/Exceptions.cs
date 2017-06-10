@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using TeamspeakBotv2.Commands;
+using TeamspeakBotv2.Models;
 
 namespace TeamspeakBotv2.Core
 {
@@ -43,6 +44,15 @@ namespace TeamspeakBotv2.Core
     {
         public int ClientId { get; set; }
         public string ClientName { get; set; }
+        public UserNotInChannelEventArgs()
+        {
+
+        }
+        public UserNotInChannelEventArgs(ClientModel model)
+        {
+            ClientName = model.ClientName;
+            ClientId = model.ClientId;
+        }
     }
 
     

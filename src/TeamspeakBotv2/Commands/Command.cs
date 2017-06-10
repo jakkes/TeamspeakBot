@@ -47,4 +47,49 @@ namespace TeamspeakBotv2.Commands
 
         }
     }
+    public class CommandException : Exception
+    {
+        public ErrorModel Error { get; set; }
+        public Type Command { get; set; }
+        public new string Message { get; set; }
+        public CommandException(ErrorModel model, Type command)
+        {
+            Error = model;
+            Command = command;
+            if (command == typeof(BanCommand))
+                Message = "BanCommand failed";
+            else if (command == typeof(CreateChannelCommand))
+                Message = "CreateChannelCommand failed";
+            else if (command == typeof(GetClientCommand))
+                Message = "GetClientCommand failed";
+            else if (command == typeof(GetDetailedClientCommand))
+                Message = "GetDetailedClientCommand failed";
+            else if (command == typeof(GetUIDCommand))
+                Message = "GetUIDCommand failed";
+            else if (command == typeof(LoginCommand))
+                Message = "LoginCommand failed";
+            else if (command == typeof(MoveClientCommand))
+                Message = "MoveClientCommand failed";
+            else if (command == typeof(PokeClientCommand))
+                Message = "PokeClientCommand failed";
+            else if (command == typeof(RegisterToEventCommand))
+                Message = "RegisterForEventCommand failed";
+            else if (command == typeof(SelectServerCommand))
+                Message = "SelectServerCommand failed";
+            else if (command == typeof(SendTextCommand))
+                Message = "SentTextCommand failed";
+            else if (command == typeof(SetChannelNameCommand))
+                Message = "SetChannelNameCommand failed";
+            else if (command == typeof(WhoAmICommand))
+                Message = "WhoAmICommand failed";
+            else
+                Message = command.FullName + " failed";
+        }
+        public CommandException(ErrorModel model, Type command, string message)
+        {
+            Error = model;
+            Command = command;
+            Message = message;
+        }
+    }
 }

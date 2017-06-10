@@ -40,19 +40,4 @@ namespace TeamspeakBotv2.Commands
             Message = "channellist";
         }
     }
-
-    public class GetChannelException : Exception{
-        public string ChannelName { get; set; }
-        public int? ChannelId { get; set; }
-        public GetChannelException(string channelName) : base("Could not find channel " + channelName){
-            ChannelName = channelName;
-        }
-        public GetChannelException(int cid) : base("Could not find channel id " + cid){
-            ChannelId = cid;
-        }
-        public GetChannelException(string name, int cid) : base("Could not find channel " + name + ". ID: " + cid){
-            ChannelId = cid;
-            ChannelName = name;
-        }
-    }
 }

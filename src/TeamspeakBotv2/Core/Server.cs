@@ -15,7 +15,7 @@ namespace TeamspeakBotv2.Core
         public IPEndPoint Host { get; private set; }
         private string Username;
         private string Password;
-        private List<Channel> Channels = new List<Channel>();
+        private List<Channel> chs = new List<Channel>();
         private int Timeout;
 
         public Server(ServerConfig cnf, IPEndPoint host, string username, string password, int timeout)
@@ -30,60 +30,58 @@ namespace TeamspeakBotv2.Core
         public void UpdateConfig(ServerConfig cnf)
         {
             config = cnf;
-            List<Channel> newchannels = new List<Channel>();
-            foreach(var channel in cnf.Channels)
+
+            var currChs = chs.ToArray();
+            var exists = new bool[currChs.Length];
+            chs = new List<Channel>();
+
+            foreach(var ch in cnf.Channels)
             {
-                Channel ch;
-                if ((ch = Channels.FirstOrDefault(x => x.ChannelName == channel)) != null)
+                bool found = false;
+                for(int i = 0; i < currChs.Length; i++)
                 {
-                    if (ch.Active)
+                    if(currChs[i].Active && currChs[i].ChannelName == ch)
                     {
-                        newchannels.Add(ch);
-                        Channels.Remove(ch);
+                        found = true;
+                        exists[i] = true;
+                        break;
                     }
-                    else
-                    {
-                        ch.Dispose();
-                        StartChannel(ch.ChannelName);
-                    }
-                } else
-                {
-                    StartChannel(channel);
                 }
+                if (!found)
+                    try { StartChannel(ch); }
+                    catch(Exception ex) { Console.WriteLine("Failed to start channel on update."); Console.WriteLine(ex.Message); }
             }
-            Channels = newchannels;
+
+            for(int i = 0; i < currChs.Length; i++)
+            {
+                if (exists[i])
+                    chs.Add(currChs[i]);
+                else
+                    currChs[i].Dispose();
+            }
         }
         private void StartChannels()
         {
             foreach (var ch in config.Channels)
             {
-                StartChannel(ch);
+                try { StartChannel(ch); }
+                catch (Exception ex) { Console.WriteLine("Failed to start channel."); Console.WriteLine(ex.Message); }
             }
         }
         private void StartChannel(string name)
         {
-            if (!Channels.Any(x => x.ChannelName == name))
-            {
-                try
-                {
-                    var cha = new Channel(name, config.Parent, config.DefaultChannel, Host, Username, Password, config.Id, Timeout, config.BanTime);
-                    cha.Disposed += ChannelDisposed;
-                    Channels.Add(cha);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-            }
+            var cha = new Channel(name, config.Parent, config.DefaultChannel, Host, Username, Password, config.Id, Timeout, config.BanTime);
+            cha.Disposed += ChannelDisposed;
+            chs.Add(cha);
         }
         private void ChannelDisposed(object sender, EventArgs e)
         {
             Console.WriteLine("Channel " + ((Channel)sender).ChannelName + " stopped.");
-            Channels.Remove((Channel)sender);
+            chs.Remove((Channel)sender);
         }
         public void Dispose()
         {
-            foreach (var channel in Channels)
+            foreach (var channel in chs)
             {
                 channel.Disposed -= ChannelDisposed;
                 channel.Dispose();

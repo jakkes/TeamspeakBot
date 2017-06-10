@@ -17,13 +17,4 @@ namespace TeamspeakBotv2.Commands
             
         }
     }
-
-    public class MoveClientException : Exception {
-        public MoveClientException(string msg) : base(msg){
-
-        }
-        public MoveClientException() : base("Failed to move client."){
-            
-        }
-    }
 }
