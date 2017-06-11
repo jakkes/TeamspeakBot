@@ -218,6 +218,19 @@ namespace TeamspeakBotv2.Core
         {
             return Owner != null && Owner.UniqueId == UniqueId;
         }
+        private bool OwnerActive()
+        {
+            if(Owner != null)
+            {
+                try
+                {
+                    var t = _getDetailedClient(Owner);
+                    return t.UniqueId == Owner.UniqueId && t.ChannelId == ChannelId;
+                }
+                catch (Exception) { return false; }
+            } else
+                return false;
+        }
         private string _getUID(int clid)
         {
             var cmd = new GetUIDCommand(clid);
@@ -387,9 +400,9 @@ namespace TeamspeakBotv2.Core
         {
             try
             {
-                if (model.ChannelFromId == ThisChannel.ChannelId)
+                if (model.ChannelFromId == ThisChannel.ChannelId && !OwnerActive())
                 {
-                    ClientLeft(_getClient(model.ClientId));
+                    TransferOwnershipToNext();
                 }
             }
             catch (CommandException ex)
@@ -470,24 +483,26 @@ namespace TeamspeakBotv2.Core
         private void ClientLeft(ClientModel client)
         {
             if (isOwner(client))
+                TransferOwnershipToNext();
+        }
+        private void TransferOwnershipToNext()
+        {
+            while (OwnerQueue.Count > 0)
             {
-                while (OwnerQueue.Count > 0)
+                ClientModel cl = OwnerQueue.Dequeue();
+                try
                 {
-                    ClientModel cl = OwnerQueue.Dequeue();
-                    try
-                    {
-                        SetOwner(cl);
-                        return;
-                    }
-                    catch (UserNotInChannelException) { }
-                    catch (Exception) { }
+                    SetOwner(cl);
+                    return;
                 }
-                Reset();
+                catch (UserNotInChannelException) { }
+                catch (Exception) { }
             }
+            Reset();
         }
         private void DisplayHelp()
         {
-            _sendTextMessage(@"I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.\n\nNew feature! People spamjoining will be automatically banned from the server.");
+            _sendTextMessage(@"I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.\n\nNew feature! Sadly all configs have been reset.");
         }
         private void Kick(ClientModel client)
         {

@@ -31,9 +31,13 @@ namespace TeamspeakBotv2
             tmr = new Timer(new TimerCallback(UpdateConfig), null, 300000, 300000);
 
             // Loop until exit command
-            while (Console.ReadLine() != "exit")
+            while (true)
             {
-
+                var s = Console.ReadLine();
+                if (s.ToLower() == "exit")
+                    break;
+                else if (s.ToLower() == "update")
+                    UpdateConfig(null);
             }
 
             // Shutdown
