@@ -6,7 +6,6 @@ namespace TeamspeakBotv2.Commands
 {
     public class WhoAmICommand : Command
     {
-        public WhoAmIModel Result { get; private set; }
         public WhoAmICommand(){
             Message = "whoami";
         }
@@ -18,6 +17,8 @@ namespace TeamspeakBotv2.Commands
             } else {
                 throw new RegexMatchException();
             }
+
+            base.HandleResponse(msg);
         }
     }
 }

@@ -7,11 +7,10 @@ using TeamspeakBotv2.Core;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class GetChannelCommand : Command
+    public class GetChannelCommand : CollectCommand
     {
         private string _name;
         private int _cid = -1;
-        public ChannelModel Result { get; private set; }
         public override void HandleResponse(string msg)
         {
             var lines = msg.Split('|');
@@ -21,14 +20,20 @@ namespace TeamspeakBotv2.Commands
                     var mo = new ChannelModel(m);
                     if((_cid != -1 && mo.ChannelId == _cid) || (!string.IsNullOrEmpty(_name) && mo.ChannelName == _name)){
                         Result = mo;
-                        return;
+                        break;
                     }
                 } else
                 {
-                    throw new RegexMatchException();
+                    throw new RegexMatchException(msg, RegPatterns.Channel);
                 }
             }
-            _failed("Could not find channel.");
+            if (Result == null)
+            {
+                _failed("Could not find channel.");
+                return;
+            }
+
+            base.HandleResponse(msg);
         }
         public GetChannelCommand(string channelName) : this() {
             _name = channelName;

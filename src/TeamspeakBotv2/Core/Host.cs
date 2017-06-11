@@ -90,6 +90,7 @@ namespace TeamspeakBotv2.Core
                 server.Disposed -= Srv_Disposed;
                 server.Dispose();
             }
+            Disposed?.Invoke(this, null);
         }
     }
 }

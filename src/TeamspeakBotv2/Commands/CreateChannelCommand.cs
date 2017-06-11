@@ -4,7 +4,7 @@ using TeamspeakBotv2.Models;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class CreateChannelCommand : Command
+    public class CreateChannelCommand : NonCollectCommand
     {
         private string channelName;
         private int parentId;
@@ -22,7 +22,7 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
     }
 }

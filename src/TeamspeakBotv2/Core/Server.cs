@@ -70,7 +70,7 @@ namespace TeamspeakBotv2.Core
         }
         private void StartChannel(string name)
         {
-            var cha = new Channel(name, config.Parent, config.DefaultChannel, Host, Username, Password, config.Id, Timeout, config.BanTime);
+            var cha = new Channel(name, config.Parent, config.DefaultChannel, Host, Username, Password, config.Id, Timeout, config.BanTime, config.Info);
             cha.Disposed += ChannelDisposed;
             chs.Add(cha);
         }

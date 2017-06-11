@@ -4,7 +4,7 @@ using TeamspeakBotv2.Core;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class PokeClientCommand : Command
+    public class PokeClientCommand : NonCollectCommand
     {
         public PokeClientCommand(IUser user, string message)
             : this(user.ClientId, message) {
@@ -14,7 +14,7 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
     }
 }

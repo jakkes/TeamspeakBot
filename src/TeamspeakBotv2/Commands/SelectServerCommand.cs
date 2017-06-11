@@ -7,11 +7,11 @@ using TeamspeakBotv2.Models;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class SelectServerCommand : Command
+    public class SelectServerCommand : NonCollectCommand
     {
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
 
         public SelectServerCommand(int serverId)

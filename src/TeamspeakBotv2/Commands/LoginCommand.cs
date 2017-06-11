@@ -1,19 +1,10 @@
-﻿using System;
-using TeamspeakBotv2.Models;
-using TeamspeakBotv2.Core;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace TeamspeakBotv2.Commands
+﻿namespace TeamspeakBotv2.Commands
 {
-    public class LoginCommand : Command
+    public class LoginCommand : NonCollectCommand
     {
-        
-
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
 
         public LoginCommand(string username, string password)

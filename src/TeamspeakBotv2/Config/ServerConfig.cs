@@ -8,6 +8,7 @@ namespace TeamspeakBotv2.Config
     public class ServerConfig
     {
         public int Id { get; set; }
+        public string Info { get; set; }
         public string DefaultChannel { get; set; }
         public string[] Channels { get; set; }
         public string Parent { get; set; }

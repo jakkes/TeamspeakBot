@@ -2,7 +2,7 @@ using System;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class RegisterToEventCommand : Command
+    public class RegisterToEventCommand : NonCollectCommand
     {
         public RegisterToEventCommand(Event ev, int cid)
         {
@@ -13,6 +13,7 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
+            throw new RegexMatchException();
         }
     }
     public enum Event

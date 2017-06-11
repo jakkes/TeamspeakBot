@@ -1,4 +1,5 @@
 using System;
+using System.Text.RegularExpressions;
 using System.Threading;
 using TeamspeakBotv2.Core;
 using TeamspeakBotv2.Models;
@@ -7,10 +8,20 @@ namespace TeamspeakBotv2.Commands
 {
     public abstract class Command
     {
+        public object Result { get; set; }
         internal string Message { get; set; }
         public string ErrorMessage { get; protected set; }
         public ErrorModel Error { get; protected set; }
-        public abstract void HandleResponse(string msg);
+        public virtual void HandleResponse(string msg)
+        {
+            if (Error != null)
+            {
+                if (!Error.Error)
+                    Success.Set();
+                else
+                    _failed(Error.Message);
+            }
+        }
 
         public ManualResetEvent Success = new ManualResetEvent(false);
         public ManualResetEvent Failed = new ManualResetEvent(false);
@@ -32,19 +43,35 @@ namespace TeamspeakBotv2.Commands
         }
 
         public void HandleErrorLine(ErrorModel mo){
+            if (Error != null)
+                throw new ErrorPreviouslyHandledException();
+
             Error = mo;
-            if (!mo.Error)
-                Success.Set();
-            else
-                _failed(mo.Message);
+            if (Result != null)
+            {
+                if (!mo.Error)
+                    Success.Set();
+                else
+                    _failed(mo.Message);
+            }
         }
+    }
+    public class ErrorPreviouslyHandledException : Exception
+    {
+
     }
     public class RegexMatchException : Exception
     {
+        public string Line { get; set; }
+        public Regex Regex { get; set; }
         public RegexMatchException(string msg) : base(msg) { }
         public RegexMatchException() : base("Failed to match regex.")
         {
 
+        }
+        public RegexMatchException(string line, Regex rgx) : base("Failed to match regex")
+        {
+            Line = line; Regex = rgx;
         }
     }
     public class CommandException : Exception

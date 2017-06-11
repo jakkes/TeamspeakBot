@@ -15,7 +15,13 @@ namespace TeamspeakBotv2.Core
     public class Channel : IDisposable
     {
 
-        private Queue<Command> _responseQueue = new Queue<Command>();
+        public Command[] ResponseQueue { get { return _responseQueue.ToArray(); } }
+        private List<Command> _responseQueue = new List<Command>();
+        private List<Command> _sentCmds = new List<Command>();
+
+        private List<string> sentStuff = new List<string>();
+
+        private string infoMessage;
 
         public event EventHandler Disposed;
         public bool Active
@@ -33,12 +39,6 @@ namespace TeamspeakBotv2.Core
         {
             get { return connection.Connected; }
         }
-        private AutoResetEvent ErrorLineReceived = new AutoResetEvent(false);
-        private AutoResetEvent WhoAmIReceived = new AutoResetEvent(false);
-        private AutoResetEvent ChannelListUpdated = new AutoResetEvent(false);
-        private AutoResetEvent ClientListUpdated = new AutoResetEvent(false);
-        private AutoResetEvent ClientUniqueIdFromClidReceived = new AutoResetEvent(false);
-        private AutoResetEvent DetailedClientReceived = new AutoResetEvent(false);
         public string ChannelName { get { return RealChannelName; } }
         public int ChannelId { get { return ThisChannel.ChannelId; } }
         private ChannelModel ThisChannel;
@@ -52,9 +52,6 @@ namespace TeamspeakBotv2.Core
         private ClientModel Owner = null;
         private Config config = new Config();
         private Queue<ClientModel> OwnerQueue = new Queue<ClientModel>();
-        private List<ClientModel> ClientList = new List<ClientModel>();
-        private List<GetUidFromClidModel> UidFromClidResponses = new List<GetUidFromClidModel>();
-        private Dictionary<string, DetailedClientModel> DetailedClientResponses = new Dictionary<string, DetailedClientModel>();
 
         private Dictionary<string, int> SpamCount = new Dictionary<string, int>();
         private Timer _spamTimer;
@@ -62,11 +59,12 @@ namespace TeamspeakBotv2.Core
         private Timer readTimer;
         private Timer loopTimer;
 
-        public Channel(string channel, string parent, string defaultchannel, IPEndPoint host, string username, string password, int serverId, int timeout, int banTime)
+        public Channel(string channel, string parent, string defaultchannel, IPEndPoint host, string username, string password, int serverId, int timeout, int banTime, string infoMessage)
         {
             RealChannelName = channel;
             Bantime = banTime;
             Timeout = timeout;
+            this.infoMessage = infoMessage;
 
             connection = new Socket(SocketType.Stream, ProtocolType.Tcp);
             try { connection.Connect(host); }
@@ -79,7 +77,7 @@ namespace TeamspeakBotv2.Core
             {
                 Console.WriteLine("Failed starting channel " + channel);
                 Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.Error.Message);
+                Console.WriteLine(ex.Error?.Message);
                 Dispose();
                 return;
             }
@@ -112,7 +110,6 @@ namespace TeamspeakBotv2.Core
             }), null, 5000, 10000);
             Console.WriteLine("Started bot in " + channel);
         }
-
         /// <summary>
         /// Logs into the query
         /// </summary>
@@ -121,7 +118,7 @@ namespace TeamspeakBotv2.Core
         internal void _login(string username, string password)
         {
             var cmd = new LoginCommand(username, password);
-            SendSuccessfully(cmd, Timeout);
+            Send(cmd, Timeout);
         }
         /// <summary>
         /// Selects server
@@ -130,7 +127,7 @@ namespace TeamspeakBotv2.Core
         internal void _selectServer(int id)
         {
             var cmd = new SelectServerCommand(id);
-            SendSuccessfully(cmd, Timeout);
+            Send(cmd, Timeout);
         }
         /// <summary>
         /// Creates and moves the bot to a temporary channel.
@@ -151,7 +148,7 @@ namespace TeamspeakBotv2.Core
         internal void _createChannel(string channelName, int parentId)
         {
             var cmd = new CreateChannelCommand(channelName, parentId);
-            SendSuccessfully(cmd, Timeout);
+            Send(cmd, Timeout);
         }
         /// <summary>
         /// Gets information of a channel.
@@ -161,14 +158,14 @@ namespace TeamspeakBotv2.Core
         internal ChannelModel _getChannel(string channelName)
         {
             var cmd = new GetChannelCommand(channelName);
-            SendSuccessfully(cmd, Timeout);
-            return cmd.Result;
+            Send(cmd, Timeout);
+            return (ChannelModel)cmd.Result;
         }
         internal WhoAmIModel _whoAmI()
         {
             var cmd = new WhoAmICommand();
-            SendSuccessfully(cmd, Timeout);
-            return cmd.Result;
+            Send(cmd, Timeout);
+            return (WhoAmIModel)cmd.Result;
         }
         /// <summary>
         /// Logs onto the server and initilizes the bot.
@@ -190,8 +187,8 @@ namespace TeamspeakBotv2.Core
         }
         private void _registerToEvents()
         {
-            SendSuccessfully(new RegisterToEventCommand(Event.Channel, ThisChannel.ChannelId), Timeout);
-            SendSuccessfully(new RegisterToEventCommand(Event.TextChannel, ThisChannel.ChannelId), Timeout);
+            Send(new RegisterToEventCommand(Event.Channel, ThisChannel.ChannelId), Timeout);
+            Send(new RegisterToEventCommand(Event.TextChannel, ThisChannel.ChannelId), Timeout);
         }
         private void Reset()
         {
@@ -204,11 +201,14 @@ namespace TeamspeakBotv2.Core
                 Console.WriteLine("Failed to save config.");
                 Console.WriteLine(ex.Message);
             }
-
-            SetChannelName(RealChannelName);
-            OwnerQueue.Clear();
-            Owner = null;
-            config = new Config();
+            try
+            {
+                SetChannelName(RealChannelName);
+                OwnerQueue.Clear();
+                Owner = null;
+                config = new Config();
+            }
+            catch (Exception) { Dispose(); }
         }
         private bool isOwner(ClientModel client)
         {
@@ -234,25 +234,25 @@ namespace TeamspeakBotv2.Core
         private string _getUID(int clid)
         {
             var cmd = new GetUIDCommand(clid);
-            SendSuccessfully(cmd, Timeout);
-            return cmd.Result;
+            Send(cmd, Timeout);
+            return (string)cmd.Result;
         }
         private string _getUID(ClientModel client) => _getUID(client.ClientId);
         private void _moveClient(IUser user, ChannelModel targetChannel)
         {
-            SendSuccessfully(new MoveClientCommand(user, targetChannel), Timeout);
+            Send(new MoveClientCommand(user, targetChannel), Timeout);
         }
         private void _pokeClient(int clid, string message)
         {
-            SendSuccessfully(new PokeClientCommand(clid, message), Timeout);
+            Send(new PokeClientCommand(clid, message), Timeout);
         }
         private void _pokeClient(IUser user, string msg) => _pokeClient(user.ClientId, msg);
         private ClientModel _getClient(string name)
         {
             var cmd = new GetClientCommand(name);
-            SendSuccessfully(cmd, Timeout);
-            cmd.Result.UniqueId = _getUID(cmd.Result.ClientId);
-            return cmd.Result;
+            Send(cmd, Timeout);
+            ((ClientModel)(cmd.Result)).UniqueId = _getUID(((ClientModel)cmd.Result).ClientId);
+            return (ClientModel)cmd.Result;
         }
         /// <summary>
         /// Retrieves client information.
@@ -263,23 +263,23 @@ namespace TeamspeakBotv2.Core
         private ClientModel _getClient(int clid)
         {
             var cmd = new GetClientCommand(clid);
-            SendSuccessfully(cmd, Timeout);
-            cmd.Result.UniqueId = _getUID(clid);
-            return cmd.Result;
+            Send(cmd, Timeout);
+            ((ClientModel)cmd.Result).UniqueId = _getUID(clid);
+            return (ClientModel)cmd.Result;
         }
         private DetailedClientModel _getDetailedClient(ClientModel model)
         {
-            return _getDetailedClient(model.ClientId);
+            return _getDetailedClient(model.ClientId, model.ClientName);
         }
-        private DetailedClientModel _getDetailedClient(int clid)
+        private DetailedClientModel _getDetailedClient(int clid, string name)
         {
-            var cmd = new GetDetailedClientCommand(clid);
-            SendSuccessfully(cmd, Timeout);
-            return cmd.Result;
+            var cmd = new GetDetailedClientCommand(clid, name);
+            Send(cmd, Timeout);
+            return (DetailedClientModel)cmd.Result;
         }
         private void _ban(int clid, int time)
         {
-            SendSuccessfully(new BanCommand(clid, time), Timeout);
+            Send(new BanCommand(clid, time), Timeout);
         }
         private void _ban(ClientModel client, int time)
         {
@@ -289,30 +289,24 @@ namespace TeamspeakBotv2.Core
         /// Sends a command to the server and then places it in the response queue.
         /// </summary>
         /// <param name="cmd">Command to be sent.</param>
-        private void Send(Command cmd)
+        private void Send(Command cmd, int timeout)
         {
+            _responseQueue.Add(cmd);
             _send(cmd.Message);
-            _responseQueue.Enqueue(cmd);
-        }
-        /// <summary>
-        /// Sends a command to the query and waits for the result.
-        /// </summary>
-        /// <param name="cmd">Command to be sent</param>
-        /// <param name="timeout">Timeout</param>
-        /// <returns>True if successful, false if an error was encountered.</returns>
-        private void SendSuccessfully(Command cmd, int timeout)
-        {
-            Send(cmd);
             if (!cmd.Succeeded(timeout))
+            {
+                _responseQueue.Remove(cmd);
                 throw new CommandException(cmd.Error, cmd.GetType());
+            }
+            _responseQueue.Remove(cmd);
         }
         internal void _send(string message)
         {
-            Task.Run(() => { connection.Send(Encoding.ASCII.GetBytes(message + "\n\r")); });
+            connection.Send(Encoding.ASCII.GetBytes(message + "\n\r"));
         }
         private void _sendTextMessage(string message)
         {
-            SendSuccessfully(new SendTextCommand(message), Timeout);
+            Send(new SendTextCommand(message), Timeout);
         }
         private void Read(object state)
         {
@@ -337,25 +331,42 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleReply(string line)
         {
+            var stuff = ResponseQueue;
             var errormatch = RegPatterns.ErrorLine.Match(line);
             if (errormatch.Success)
             {
-                try { _responseQueue.Dequeue().HandleErrorLine(new ErrorModel(errormatch)); } catch (InvalidOperationException) { }
+                // Message is an error line
+                var errormodel = new ErrorModel(errormatch);
+                for (int i = 0; i < stuff.Length; i++)
+                {
+                    try
+                    {
+                        stuff[i].HandleErrorLine(errormodel);
+                        break;
+                    }
+                    catch (ErrorPreviouslyHandledException) { }
+                }
             }
             else
             {
                 // Check if the message is a response message.
-                try
+                bool handled = false;
+
+                for (int i = 0; i < stuff.Length; i++)
                 {
-                    if (_responseQueue.Count > 0)
-                        _responseQueue.Peek().HandleResponse(line);
-                    else
-                        throw new RegexMatchException();
+                    try
+                    {
+                        stuff[i].HandleResponse(line);
+                        handled = true;
+                    }
+                    catch (RegexMatchException) { }
+                    catch (ArgumentException) { }
                 }
-                catch (RegexMatchException)
+
+                if (!handled)
                 {
                     // Message is not a response.
-                    var m = RegPatterns.ClientMoved.Match(line);
+                    Match m;
                     if ((m = RegPatterns.TextMessage.Match(line)).Success)
                     {
                         HandleMessage(new MessageModel(m));
@@ -376,11 +387,6 @@ namespace TeamspeakBotv2.Core
                     {
                         HandleClientEnterView(new ClientEnteredViewModel(m));
                     }
-
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex.Message);
                 }
             }
         }
@@ -393,7 +399,7 @@ namespace TeamspeakBotv2.Core
             catch (CommandException ex)
             {
                 Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.Error.Message);
+                Console.WriteLine(ex.Error?.Message);
             }
         }
         private void HandleClientLeftView(ClientLeftViewModel model)
@@ -408,7 +414,7 @@ namespace TeamspeakBotv2.Core
             catch (CommandException ex)
             {
                 Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.Error.Message);
+                Console.WriteLine(ex.Error?.Message);
             }
         }
         private void HandleClientMoved(ClientMovedModel model)
@@ -419,7 +425,7 @@ namespace TeamspeakBotv2.Core
                 catch (CommandException ex)
                 {
                     Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.Error.Message);
+                    Console.WriteLine(ex.Error?.Message);
                 }
             }
             else
@@ -428,7 +434,7 @@ namespace TeamspeakBotv2.Core
                 catch (CommandException ex)
                 {
                     Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.Error.Message);
+                    Console.WriteLine(ex.Error?.Message);
                 }
             }
         }
@@ -449,7 +455,7 @@ namespace TeamspeakBotv2.Core
                         catch (CommandException ex)
                         {
                             Console.WriteLine(ex.Message);
-                            Console.WriteLine(ex.Error.Message);
+                            Console.WriteLine(ex.Error?.Message);
                         }
                         return;
                     }
@@ -502,7 +508,7 @@ namespace TeamspeakBotv2.Core
         }
         private void DisplayHelp()
         {
-            _sendTextMessage(@"I am a TeamspeakBot here to control the server. !cmdlist displays a list of commands. If you have any feedback or thoughts you can type !feedback followed by your message and I will see it.\n\nNew feature! Sadly all configs have been reset.");
+            _sendTextMessage(infoMessage);
         }
         private void Kick(ClientModel client)
         {
@@ -526,7 +532,13 @@ namespace TeamspeakBotv2.Core
                 Kick(client);
                 _pokeClient(client, "You were banned from this channel.");
             }
-            catch (UserNotFoundException) { _sendTextMessage("Could not find user " + name); }
+            catch (CommandException ex)
+            {
+                if (ex.Command == typeof(GetClientCommand))
+                    _sendTextMessage("Could not find user " + name);
+                else
+                    _sendTextMessage("Something went wrong when banning...");
+            }
             catch (UserNotInChannelException) { }
             catch (ArgumentException) { _sendTextMessage(name + " is already on the banlist."); }
         }
@@ -536,7 +548,13 @@ namespace TeamspeakBotv2.Core
             {
                 config.Unban(_getClient(name).UniqueId);
             }
-            catch (UserNotFoundException) { _sendTextMessage("Could not find user " + name); }
+            catch (CommandException ex)
+            {
+                if (ex.Command == typeof(GetClientCommand))
+                    _sendTextMessage("Could not find user " + name);
+                else
+                    _sendTextMessage("Something went wrong when unbanning...");
+            }
         }
         private void HandleMessage(MessageModel model)
         {
@@ -550,21 +568,23 @@ namespace TeamspeakBotv2.Core
                         Console.WriteLine(string.Join(" ", model.Words, 1, model.Words.Length - 1));
                     else if (model.Words[0] == "!cmdlist")
                         DisplayCommandList();
-                    else if (model.Words[0] == "!claim")
-                    {
-                        try
-                        {
-                            ClaimChannel(model);
-                            _sendTextMessage("You are now in power of this channel.");
-                        }
-                        catch (Exception) { _sendTextMessage("This channel is claimed already."); }
-                    }
                     else if (isOwner(model.ClientUniqueId))
                     {
 
                         if (model.Words[0] == "!kick")
                         {
-                            try { Kick(_getClient(string.Join(" ", model.Words, 1, model.Words.Length - 1))); } catch (UserNotFoundException ex) { _sendTextMessage("Could not find user " + ex.ClientName); } catch (UserNotInChannelException ex) { _sendTextMessage(ex.ClientName + " is not in this channel."); }
+                            try
+                            {
+                                Kick(_getClient(string.Join(" ", model.Words, 1, model.Words.Length - 1)));
+                            }
+                            catch (CommandException ex)
+                            {
+                                if (ex.Command == typeof(GetClientCommand))
+                                    _sendTextMessage("Could not find user");
+                                else
+                                    _sendTextMessage("An unknown error was encountered.");
+                            }
+                            catch (UserNotInChannelException ex) { _sendTextMessage(ex.ClientName + " is not in this channel."); }
                         }
                         else if (model.Words[0] == "!banlist")
                         {
@@ -586,9 +606,12 @@ namespace TeamspeakBotv2.Core
                                         string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
                                         BanlistAdd(name);
                                     }
-                                    catch (UserNotFoundException ex)
+                                    catch (CommandException ex)
                                     {
-                                        _sendTextMessage("Could not find user " + ex.ClientName);
+                                        if (ex.Command == typeof(GetClientCommand))
+                                            _sendTextMessage("Could not find user");
+                                        else
+                                            _sendTextMessage("An unknown error was encountered.");
                                     }
                                 else if (model.Words[1] == "remove")
                                 {
@@ -598,9 +621,12 @@ namespace TeamspeakBotv2.Core
                                         BanlistRemove(name);
                                         _sendTextMessage(name + " is now unbanned.");
                                     }
-                                    catch (UserNotFoundException ex)
+                                    catch (CommandException ex)
                                     {
-                                        _sendTextMessage("Could not find user " + ex.ClientName);
+                                        if (ex.Command == typeof(GetClientCommand))
+                                            _sendTextMessage("Could not find user");
+                                        else
+                                            _sendTextMessage("An unknown error was encountered.");
                                     }
                                 }
                             }
@@ -613,12 +639,12 @@ namespace TeamspeakBotv2.Core
                             {
                                 if (model.Words[1] == "on")
                                 {
-                                    ActiveWhitelist();
+                                    ActivateWhiteList();
                                     _sendTextMessage("This channel is now in whitelist mode");
                                 }
                                 else if (model.Words[1] == "off")
                                 {
-                                    DeactiveWhitelist();
+                                    DeactivateWhiteList();
                                     _sendTextMessage("This channel is now in banlist mode.");
                                 }
                             }
@@ -631,9 +657,12 @@ namespace TeamspeakBotv2.Core
                                         string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
                                         WhitelistAdd(name);
                                     }
-                                    catch (UserNotFoundException ex)
+                                    catch (CommandException ex)
                                     {
-                                        _sendTextMessage("Could not find user " + ex.ClientName);
+                                        if (ex.Command == typeof(GetClientCommand))
+                                            _sendTextMessage("Could not find user");
+                                        else
+                                            _sendTextMessage("An unknown error was encountered.");
                                     }
                                 }
                                 else if (model.Words[1] == "remove")
@@ -643,9 +672,12 @@ namespace TeamspeakBotv2.Core
                                         WhitelistRemove(name);
                                         _sendTextMessage(name + " is now removed from the whitelist.");
                                     }
-                                    catch (UserNotFoundException ex)
+                                    catch (CommandException ex)
                                     {
-                                        _sendTextMessage("Could not find user " + ex.ClientName);
+                                        if (ex.Command == typeof(GetClientCommand))
+                                            _sendTextMessage("Could not find user");
+                                        else
+                                            _sendTextMessage("An unknown error was encountered.");
                                     }
                             }
                         }
@@ -659,11 +691,23 @@ namespace TeamspeakBotv2.Core
                                     TransferOwnership(name);
                                 }
                                 catch (UserNotInChannelException ex) { _sendTextMessage(ex.ClientName + " is not in this channel."); }
-                                catch (UserNotFoundException ex) { _sendTextMessage("Could not find user " + ex.ClientName); }
+                                catch (CommandException ex)
+                                {
+                                    if (ex.Command == typeof(GetClientCommand))
+                                        _sendTextMessage("Could not find user");
+                                    else
+                                        _sendTextMessage("An unknown error was encountered.");
+                                }
                             }
                         }
                     }
                 }
+            }
+            catch(CommandException ex)
+            {
+                Console.WriteLine("Error in HandleMessage.");
+                Console.WriteLine(ex.Message);
+                Console.WriteLine(ex.Error?.Message);
             }
             catch (IndexOutOfRangeException ex)
             {
@@ -687,8 +731,18 @@ namespace TeamspeakBotv2.Core
             if (_getDetailedClient(client).ChannelId == ChannelId)
             {
                 Owner = client;
-                SetChannelName(string.Format("{0} ({1})", RealChannelName, client.ClientName));
-                DisplayHelp();
+                try { SetChannelName(string.Format("{0} ({1})", RealChannelName, client.ClientName)); }
+                catch (CommandException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine(ex.Error?.Message);
+                }
+                try { DisplayHelp(); }
+                catch (CommandException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine(ex.Error?.Message);
+                }
                 try
                 {
                     config = Config.Load(client.UniqueId);
@@ -715,7 +769,19 @@ namespace TeamspeakBotv2.Core
         }
         private void SetChannelName(string name)
         {
-            SendSuccessfully(new SetChannelNameCommand(name, ThisChannel.ChannelId), Timeout);
+            Send(new SetChannelNameCommand(name, ThisChannel.ChannelId), Timeout);
+        }
+        private bool UserInChannel(ClientModel client)
+        {
+            return _getDetailedClient(client).ChannelId == ChannelId;
+        }
+        private bool UserInChannel(string name)
+        {
+            return _getDetailedClient(_getClient(name)).ChannelId == ChannelId;
+        }
+        private bool UserInChannel(int clid)
+        {
+            return _getDetailedClient(_getClient(clid)).ChannelId == ChannelId;
         }
         private void TransferOwnership(string name)
         {
@@ -751,8 +817,8 @@ namespace TeamspeakBotv2.Core
             }
             catch (UserNotFoundException) { _sendTextMessage("Could not find user " + name); }
         }
-        private void DeactiveWhitelist() => config.UseBanlist();
-        private void ActiveWhitelist() => config.UseWhitelist();
+        private void DeactivateWhiteList() => config.UseBanlist();
+        private void ActivateWhiteList() => config.UseWhitelist();
         private void DisplayWhiteList()
         {
             _sendTextMessage("Whitelist:\\n" + string.Join("\\n", config.Whitelist.Values));

@@ -4,7 +4,7 @@ using TeamspeakBotv2.Models;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class SendTextCommand : Command
+    public class SendTextCommand : NonCollectCommand
     {
         public SendTextCommand(string msg)
         {
@@ -12,7 +12,7 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
     }
 }

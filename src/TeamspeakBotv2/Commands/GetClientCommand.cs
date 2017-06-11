@@ -6,7 +6,6 @@ namespace TeamspeakBotv2.Commands
 {
     public class GetClientCommand : Command
     {
-        public ClientModel Result { get; private set; }
         private string _name;
         private int clid = -1;
         public GetClientCommand(int clid) : this(){
@@ -32,16 +31,21 @@ namespace TeamspeakBotv2.Commands
                         return;
                     } else if (!string.IsNullOrEmpty(_name) && mo.ClientName == _name){
                         Result = mo;
-                        return;
+                        break;
                     }
                 }
                 else
                 {
-                    _failed("Failed to match regex.");
-                    throw new RegexMatchException();
+                    throw new RegexMatchException(msg, RegPatterns.Client);
                 }
             }
-            _failed("Could not find user.");
+            if (Result == null)
+            {
+                _failed("Could not find user.");
+                return;
+            }
+
+            base.HandleResponse(msg);
         }
     }
 }

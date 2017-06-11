@@ -63,10 +63,10 @@ namespace TeamspeakBotv2
         static void Start(HostConfig cnf)
         {
             var h = new Host(cnf);
-            h.Disposed += Host_Dispoed;
+            h.Disposed += Host_Disposed;
             hosts.Add(h);
         }
-        private static void Host_Dispoed(object sender, EventArgs e)
+        private static void Host_Disposed(object sender, EventArgs e)
         {
             hosts.Remove((Host)sender);
         }

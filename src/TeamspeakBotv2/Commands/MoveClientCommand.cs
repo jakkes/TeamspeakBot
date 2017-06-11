@@ -4,7 +4,7 @@ using TeamspeakBotv2.Models;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class MoveClientCommand : Command
+    public class MoveClientCommand : NonCollectCommand
     {
         public MoveClientCommand(IUser user, ChannelModel targetChannel)
             : this(user.ClientId, targetChannel.ChannelId) {
@@ -14,7 +14,7 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
     }
 }

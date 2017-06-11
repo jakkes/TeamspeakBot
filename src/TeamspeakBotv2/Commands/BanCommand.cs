@@ -4,7 +4,7 @@ using TeamspeakBotv2.Models;
 
 namespace TeamspeakBotv2.Commands
 {
-    public class BanCommand : Command
+    public class BanCommand : NonCollectCommand
     {
         /// <summary>
         /// Creates a ban command.
@@ -17,7 +17,7 @@ namespace TeamspeakBotv2.Commands
         }
         public override void HandleResponse(string msg)
         {
-            
+            throw new RegexMatchException();
         }
     }
 }
