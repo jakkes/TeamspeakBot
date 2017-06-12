@@ -28,8 +28,8 @@ namespace TeamspeakBotv2.Commands
                     var mo = new ClientModel(m);
                     if(clid != -1 && mo.ClientId == clid){
                         Result = mo;
-                        return;
-                    } else if (!string.IsNullOrEmpty(_name) && mo.ClientName == _name){
+                        break;
+                    } else if (!string.IsNullOrEmpty(_name) && mo.ClientName.ToLower() == _name.ToLower()){
                         Result = mo;
                         break;
                     }

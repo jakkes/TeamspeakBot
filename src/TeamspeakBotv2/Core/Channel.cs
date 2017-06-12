@@ -17,7 +17,7 @@ namespace TeamspeakBotv2.Core
 
         public Command[] ResponseQueue { get { return _responseQueue.ToArray(); } }
         private List<Command> _responseQueue = new List<Command>();
-        private List<Command> _sentCmds = new List<Command>();
+        private List<string> _sentCmds = new List<string>();
 
         private List<string> sentStuff = new List<string>();
 
@@ -293,15 +293,20 @@ namespace TeamspeakBotv2.Core
         {
             _responseQueue.Add(cmd);
             _send(cmd.Message);
-            if (!cmd.Succeeded(timeout))
+            try
             {
+                if (!cmd.Succeeded(timeout))
+                {
+                    _responseQueue.Remove(cmd);
+                    throw new CommandException(cmd.Error, cmd.GetType());
+                }
                 _responseQueue.Remove(cmd);
-                throw new CommandException(cmd.Error, cmd.GetType());
             }
-            _responseQueue.Remove(cmd);
+            catch (TimeoutException) { throw new CommandException(cmd.Error, cmd.GetType(), "Timeout"); }
         }
         internal void _send(string message)
         {
+            _sentCmds.Add(message);
             connection.Send(Encoding.ASCII.GetBytes(message + "\n\r"));
         }
         private void _sendTextMessage(string message)
@@ -331,6 +336,7 @@ namespace TeamspeakBotv2.Core
         }
         private void HandleReply(string line)
         {
+            _sentCmds.Add(line);
             var stuff = ResponseQueue;
             var errormatch = RegPatterns.ErrorLine.Match(line);
             if (errormatch.Success)
@@ -435,6 +441,8 @@ namespace TeamspeakBotv2.Core
                 {
                     Console.WriteLine(ex.Message);
                     Console.WriteLine(ex.Error?.Message);
+                    if (!OwnerActive())
+                        TransferOwnershipToNext();
                 }
             }
         }
@@ -575,7 +583,11 @@ namespace TeamspeakBotv2.Core
                         {
                             try
                             {
-                                Kick(_getClient(string.Join(" ", model.Words, 1, model.Words.Length - 1)));
+                                string name = string.Join(" ", model.Words, 1, model.Words.Length - 1);
+                                if (name.ToLower() != Owner.ClientName.ToLower())
+                                    Kick(_getClient(name));
+                                else
+                                    _sendTextMessage("Cannot kick yourself.");
                             }
                             catch (CommandException ex)
                             {
@@ -604,7 +616,10 @@ namespace TeamspeakBotv2.Core
                                     try
                                     {
                                         string name = string.Join(" ", model.Words, 2, model.Words.Length - 2);
-                                        BanlistAdd(name);
+                                        if (name.ToLower() != Owner.ClientName.ToLower())
+                                            BanlistAdd(name);
+                                        else
+                                            _sendTextMessage("Cannot ban yourself.");
                                     }
                                     catch (CommandException ex)
                                     {

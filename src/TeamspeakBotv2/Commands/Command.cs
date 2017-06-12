@@ -36,10 +36,15 @@ namespace TeamspeakBotv2.Commands
         /// </summary>
         /// <returns>Returns true if the command was successful and false if an error was encountered.</returns>
         public bool Succeeded(int timeout){
-            if(timeout == -1)
-                return WaitHandle.WaitAny(new WaitHandle[]{ Success, Failed}) == 0;
+            if (timeout == -1)
+                return WaitHandle.WaitAny(new WaitHandle[] { Success, Failed }) == 0;
             else
-                return WaitHandle.WaitAny(new WaitHandle[]{ Success, Failed}, timeout) == 0;
+            {
+                var r = WaitHandle.WaitAny(new WaitHandle[] { Success, Failed }, timeout);
+                if (r == WaitHandle.WaitTimeout)
+                    throw new TimeoutException();
+                else return r == 0;
+            }
         }
 
         public void HandleErrorLine(ErrorModel mo){
