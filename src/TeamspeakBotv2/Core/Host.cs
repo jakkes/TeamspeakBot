@@ -48,7 +48,7 @@ namespace TeamspeakBotv2.Core
                     {
                         found = true;
                         exists[i] = true;
-                        currServers[i].UpdateConfig(srv);
+                        currServers[i].UpdateConfig(srv, config.Timeout);
                         break;
                     }
                 }

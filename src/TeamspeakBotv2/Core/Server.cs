@@ -27,7 +27,7 @@ namespace TeamspeakBotv2.Core
             Timeout = timeout;
             StartChannels();
         }
-        public void UpdateConfig(ServerConfig cnf)
+        public void UpdateConfig(ServerConfig cnf, int timeout)
         {
             config = cnf;
 
@@ -44,6 +44,7 @@ namespace TeamspeakBotv2.Core
                     {
                         found = true;
                         exists[i] = true;
+                        currChs[i].UpdateChannel(timeout, config.BanTime, config.Info);
                         break;
                     }
                 }
