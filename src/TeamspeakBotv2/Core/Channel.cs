@@ -17,9 +17,6 @@ namespace TeamspeakBotv2.Core
 
         public Command[] ResponseQueue { get { return _responseQueue.ToArray(); } }
         private List<Command> _responseQueue = new List<Command>();
-        private List<string> _sentCmds = new List<string>();
-
-        private List<string> sentStuff = new List<string>();
 
         private string infoMessage;
 
@@ -306,7 +303,6 @@ namespace TeamspeakBotv2.Core
         }
         internal void _send(string message)
         {
-            _sentCmds.Add(message);
             connection.Send(Encoding.ASCII.GetBytes(message + "\n\r"));
         }
         private void _sendTextMessage(string message)
@@ -331,12 +327,16 @@ namespace TeamspeakBotv2.Core
             string[] msgs = msg.Split(new string[] { "\n\r" }, StringSplitOptions.RemoveEmptyEntries);
             for (int i = 0; i < msgs.Length; i++)
             {
-                HandleReply(msgs[i]);
+                try { HandleReply(msgs[i]); }
+                catch(Exception ex)
+                {
+                    Console.WriteLine("Exception caught in Read.");
+                    Console.WriteLine(ex.Message);
+                }
             }
         }
         private void HandleReply(string line)
         {
-            _sentCmds.Add(line);
             var stuff = ResponseQueue;
             var errormatch = RegPatterns.ErrorLine.Match(line);
             if (errormatch.Success)
@@ -347,7 +347,7 @@ namespace TeamspeakBotv2.Core
                 {
                     try
                     {
-                        stuff[i].HandleErrorLine(errormodel);
+                        stuff[i]?.HandleErrorLine(errormodel);
                         break;
                     }
                     catch (ErrorPreviouslyHandledException) { }
@@ -367,6 +367,7 @@ namespace TeamspeakBotv2.Core
                     }
                     catch (RegexMatchException) { }
                     catch (ArgumentException) { }
+                    catch (Exception) { }
                 }
 
                 if (!handled)
